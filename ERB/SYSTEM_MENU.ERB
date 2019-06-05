@@ -1,0 +1,338 @@
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+;
+;	Module		:SYSTEM_MENU.ERB
+;	Facility	:MENU關聯處理。
+;
+;	Licence		:ライセンスフリー。
+;
+;	Modification Data:
+;
+;	Edit	Date			Author					Reason
+;	001		20XX/XX/XX		----					新規作成
+;
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+
+;===============================================================================
+;  ◇記載関數一覧(記載順)
+;
+;		Module Name						Explanation
+;
+; *- xxxx
+;
+;	・ SYSTEM_MENU						SYSTEM:MENU
+;
+;===============================================================================
+
+;-------------------------------------------------------------------------------
+;   xxxx
+;-------------------------------------------------------------------------------
+
+;=================================================
+;   sub SYSTEM_MENU
+;=================================================
+;   SYSTEM:MENU
+;-------------------------------------------------
+@SYSTEM_MENU(ARG:0)
+#DIM L_INPUT
+FLAG:继承种族 = 0
+Flag:泛用变数6 = 999
+;- VAR:回合結束處理
+CALL VAR_TURNEND_MAIN
+
+;角色數が一致しない場合、清單を再設定
+IF GTR_CHARA_CNT != CHARANUM
+	;- VAR:清單更新
+	CALL VAR_MAKE_LIST
+ENDIF
+
+;-------------------------------------------------
+
+$MENU_TOP
+
+;顯示:ページヘッダ
+CALL C_LINE
+
+;-----------------------------
+;-- 檔案部顯示
+;-----------------------------
+
+;情報:日期
+CALL INFO_DATE
+
+;諸情報
+
+;-----------------------------
+;-- 區劃顯示
+;-----------------------------
+CALL CITY_MAP
+;-----------------------------
+;-- 目標部顯示
+;-----------------------------
+
+;- 顯示:目標(主處理)
+CALL INFO_TARGET_MAIN
+
+;-----------------------------
+;-- パートナー顯示
+;-----------------------------
+SIF FLAG:调教对象
+	CALL SYSTEM_PARTNER
+
+
+;-----------------------------
+;- メニュー指令顯示
+;-----------------------------
+
+DRAWLINE
+
+SIF !FLAG:调教对象
+	SETCOLOR COLOR("隐藏")
+PRINTLC [100] - 幽会
+RESETCOLOR
+
+
+PRINTLC [101] - 咖啡厅
+PRINTLC [102] - 时间推进
+IF FLAG:都市_防御 != 0
+	PRINTLC [300] - 保卫战
+ENDIF
+PRINTLC [50] - BP摄取(TP回复)
+PRINTL
+
+PRINTLC [103] - 设施详情
+PRINTLC [104] - 居民设定
+PRINTLC [105] - 住宅大厦管理
+PRINTLC [901] - 主线故事
+PRINTL 
+
+
+
+PRINTLC [106] - 外界調查
+IF FLAG:都市_防御 != 0
+	PRINTLC 　　　　委托冻结
+ELSEIF Flag:委托_犯罪者驅除_Lv > 0 || Flag:委托_來自伊斯的驅除委托_Lv > 0
+	PRINTLC [107] - 委托-!-
+ELSE
+	SETCOLOR COLOR("隐藏")
+	PRINTLC [107] - 委托
+	RESETCOLOR
+ENDIF
+PRINTLC [108] - 支援指示
+PRINTL 
+IF FLAG:都市_功绩获得机会 != 0
+	SETCOLOR 50,250,250
+	PRINTLC [109] - 居民业务-!-
+	RESETCOLOR
+ELSE
+	PRINTLC [109] - 居民业务
+ENDIF
+PRINTLC [110] - 能力显示
+PRINTLC [111] - 能力上升
+IF Flag:EP他玩家干涉 != 0
+	SETCOLOR 250,50,50
+	PRINTLC [112] - 【警告】
+	RESETCOLOR
+ENDIF
+PRINTL 
+
+;PRINTLC [113] - 邀请特员
+;PRINTLC [114] - 购买道具
+;PRINTLC [115] - 购买服装
+PRINTL 
+PRINTLC [150] - 语调修正(Ver3.1)
+PRINTLC [151] - 异界召唤
+PRINTLC [153] ← [152] 变更搭档 [154] →
+PRINTL
+PRINTLC [200] - 指令过滤
+PRINTLC [201] - 成员排序
+PRINTLC [202] - 游戏指北
+PRINTL 
+
+PRINTLC [800] - 存档
+PRINTLC [801] - 读档
+PRINTLC [802] - 设置
+SIF FLAG:2周目模式
+	PRINTLC [803] - 转移到下周目
+PRINTL 
+PRINTL 
+
+
+;-----------------------------
+;- 指令受付
+;-----------------------------
+$INPUT_LOOP
+INPUT
+L_INPUT = RESULT
+Flag:泛用变数6 = 0
+RESETBGCOLOR
+
+;-------------------------------------------------
+
+SELECTCASE L_INPUT
+	;BP攝取
+	CASE 50
+		CALL SYSTEM_BP
+	;行動を開始
+	CASE 100
+		FLAG:调教对象角色固定 = 1
+		IF !FLAG:调教对象
+			CALL C_INPUT_ERROR("由于调教对象不存在，无法实行。请选择调教对象。")
+			GOTO INPUT_LOOP
+		ENDIF
+		;TRAIN
+		CALL SYSTEM_TRAIN
+		FLAG:回合結束旗标 = 1
+
+	;咖啡廳
+	CASE 101
+		CALL CITY_CAFE
+	;休息
+	CASE 102
+		IF !FLAG:休息确认机能
+			FLAG:回合結束旗标 = 1
+			RESTART
+		ELSE
+			PRINTFORM 要休息嗎？
+			PRINTL
+			CALL INPUT_YN
+
+			SELECTCASE RESULT
+				;YES
+				CASE 0
+					FLAG:回合結束旗标 = 1
+					RESTART
+				;NO
+				CASE 1
+					PRINTFORML 取消休息
+			ENDSELECT
+		ENDIF
+	;設施詳情
+	CASE 103
+		;顯示:探索
+		CALL CITY_CENTER
+	;居民設定
+	CASE 104
+		;顯示:據點へ
+		CALL JN_CONFIG
+	;住宅大廈管理
+	CASE 105
+		;顯示:住宅大廈管理
+		CALL C_M_MOVE
+	;外界調查
+	CASE 106
+		;顯示:外界調查
+		CALL RPG_MAIN
+	;委托
+	CASE 107
+		;顯示:委托
+		CALL MISSION_MAIN
+	;支援指示
+	CASE 108
+		;顯示:支援指示
+		CALL Support_Order
+	;居民業務
+	CASE 109
+		;顯示:居民業務
+		CALL WORK_MAIN
+	;能力顯示
+	CASE 110
+		CALL LIST_CHARA_STATUS_MAIN(0, "「情报显示」", , "≪受理情报公开申请，请选择居民")
+	;能力上昇
+	CASE 111
+		;SYSTEM:ABLUP畫面(LIST)
+		CALL SYSTEM_ABLUP_LIST
+	;警告
+	CASE 112
+		CALL EP_ACTION
+	CASE 152
+		CALL CHANGE_TARGET_MAIN2
+	CASE 153
+		CALL CHANGE_TARGET_PREV
+	CASE 154
+		CALL CHANGE_TARGET_NEXT
+
+
+	;召唤特员
+	CASE 113
+		;SYSTEM:SP_CALL
+		;CALL SYSTEM_SP_MENU
+	;購買道具
+	CASE 114
+		;道具:主處理
+		CALL ITEM_MAIN
+	;購買服裝
+	CASE 115
+		;服裝:主處理
+		CALL COSTUME_MAIN
+	;語調修正
+	CASE 150
+		;語調修正
+		CALL CHARACTER_SCOUT_MIND_REPEAT0
+	;異界連結
+	CASE 151
+		;異界連結
+		CALL WORLD_CONNECT
+	;指令過濾
+	CASE 200
+		;- 指令過濾畫面:主處理
+		CALL COMMAND_FILTER_MAIN
+	;角色排序
+	CASE 201
+		;角色排序畫面(主處理)
+		CALL CHARA_SORT_MAIN
+	;調教典
+	CASE 202
+		;SYSTEM:ヘルプ
+		CALL OPTION_GUDIE
+	CASE 300
+		;顯示:防御戰
+		CALL CITY_RID_B
+	;存檔
+	CASE 800
+		;- SYSTEM:存檔處理
+		CALL TITLE_SAVEGAME
+;		SAVEGAME
+	;讀檔
+	CASE 801
+		;- SYSTEM:讀檔處理
+		CALL TITLE_LOADGAME
+;		LOADGAME
+	;設置
+	CASE 802
+		;顯示:設置(LIST)
+		CALL CONFIG_LIST
+	;轉移到下週目
+	CASE 803
+		SIF !FLAG:2周目模式
+			GOTO ERROR
+
+		;顯示:ページヘッダ
+		CALL C_LINE
+
+		PRINTFORML 一部分资料将会继承到下周目。
+		PRINTFORML 要转移到下周目吗？
+		PRINTL
+		CALL INPUT_YN
+
+		SELECTCASE RESULT
+			;YES
+			CASE 0
+				PRINTFORMW 启动备用计划，资料转移中
+				PRINTL ………
+				PRINTL ……
+				PRINTW …
+				;SYSTEM:二週目處理
+				CALL SYSTEM_RESTART_MAIN
+			;NO
+			CASE 1
+				PRINTFORMW 取消转移程序
+				PRINTL ………
+				PRINTL ……
+				PRINTW …
+		ENDSELECT
+	CASEELSE
+		$ERROR
+		CALL C_INPUT_ERROR
+		GOTO INPUT_LOOP
+ENDSELECT
+RESTART

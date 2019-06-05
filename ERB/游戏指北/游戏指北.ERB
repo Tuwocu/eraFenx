@@ -1,0 +1,296 @@
+;-------------------------------------------------
+;辭典
+;-------------------------------------------------
+@OPTION_GUDIE
+#DIM L_INPUT
+
+
+CLEARLINE LINECOUNT
+SETCOLOR 250,0,0
+DRAWLINE
+PRINTFORML 权限等级已确认，接受请求。
+PRINTFORML 程序启动。
+DRAWLINE
+RESETCOLOR
+PRINTFORML
+PRINTFORML
+PRINTFORML
+PRINTFORML
+PRINTFORML
+PRINTFORML
+PRINTFORML
+PRINTFORML
+PRINTFORMW
+$INPUT_LOOP
+SETCOLOR 0,0,0
+SETBGCOLOR 255,255,255
+CLEARLINE LINECOUNT
+DRAWLINE
+PRINTFORML 欢迎，存续者
+PRINTFORML 请选择要阅览的项目。
+DRAWLINE
+PRINTFORML
+PRINTFORM [0] 管理建议　　　　　
+PRINTFORML [10] 关于各种点数
+PRINTFORM [1] 居民攻略　　　　　
+PRINTFORML [11] 开场推荐策略
+PRINTFORM [2] 陷落　　　　　　　
+PRINTFORML [12] 居民业务
+PRINTFORML [3] 战斗关联
+PRINTFORM [4] 探索　　　　　　　
+PRINTFORML [14] 技能
+PRINTFORM [5] 怀孕条件　　　　
+PRINTFORML [15] 文物
+PRINTFORM [6] 种族　　　　　　　
+PRINTFORML [16] 角色清单显示项目
+PRINTFORML [7] 结算
+PRINTFORML
+PRINTFORML [999] 离开
+INPUT
+L_INPUT = RESULT
+CLEARLINE LINECOUNT
+
+SELECTCASE L_INPUT
+CASE 0
+	PRINTFORML 大致說明。
+	PRINTFORML 1 登錄居民進行攻略。
+	PRINTFORML 2 回合進行時，居民們會進行都市發展(具備合意者會有額外修正)。
+	PRINTFORML 3 累積到某種程度設施會開放。
+	PRINTFORML 4 為了提高效率攻略新的居民。
+	PRINTFORML 以上。
+	PRINTFORMW
+CASE 1
+	PRINTFORML 『咖啡廳』可以遇到居民並進行居民登錄。
+	PRINTFORML 和登錄完成的居民會話來提高好感度和煩惱解析度。
+	PRINTFORMW
+	PRINTFORML 解析到達100％時會公開大概的情報，對公開的情報選擇適當的解決方法。
+	PRINTFORML 到出現成果需要數日，試著將解決度提高到100％。
+	PRINTFORML 有時可以在顯示日常生活情報時，在一定程度上推測出可能具有的煩惱傾向。
+	PRINTFORMW
+CASE 2
+	PRINTFORML 解決數個煩惱後可以確實得到信賴，這時候進行談話可以獲得『合意』。
+	PRINTFORML 但是不論如何進行性行為都無法取得陷落屬性。
+	PRINTFORML 在『咖啡廳』會話中會新增『個別動作』項目，選擇喜歡的陷落√。
+	PRINTFORMW
+	PRINTFORML 回合結束時會依據√提高陷落度，提升到某種程度的好感度與陷落度後，可以用『關係構築』取得陷落。
+	PRINTFORML 累積到最大可以獲得素質，但只能獲得其中一個。
+	PRINTFORML ・崇拜　從屬√的素質
+	PRINTFORML ・愛人　戀愛√的素質
+	PRINTFORML ・情婦　淫亂√的素質
+	PRINTFORMW
+CASE 3
+	PRINTFORML 【體能】
+	PRINTFORML HP　　　體力　　變成0會無法戰鬥。
+	PRINTFORML SP　　　氣力　　變成0會無法行動，降到三成以下受到的傷害會增加。
+	PRINTFORML GUTS　　膽量　　抑制行動時消耗的SP。
+	PRINTFORML BRAVE　 勇氣　　越高在戰鬥時越會做出有利行動。
+	PRINTFORML SAN　　 理性度　對恐怖系的耐性。
+	PRINTFORML ATK　　 攻擊力　主要在給予傷害時給予加成。
+	PRINTFORML DEF　　 防禦力　減輕受到的傷害。
+	PRINTFORML HIT　　 靈巧　　主要是命中加成，一定機率緩和傷害。
+	PRINTFORML SPD　　 敏捷　　主要是迴避修正，越高越容易發生先制，也影響FASTATTACK發動機率。
+	PRINTFORML LUK　　 幸運　　獲得道具的加成。意外整體的對應。
+	PRINTFORML BRE　　 防壁　　讓瘴氣無效化的障壁。
+	PRINTFORMW
+	PRINTFORML 【武裝】
+	PRINTFORML 傷害由武裝『攻擊次數』『最大傷害』『傷害加成』決定。
+	PRINTFORML ・例　2D6+2
+	PRINTFORML 攻擊次數2次，每次攻擊給予1～6隨機傷害，合計後追加2點傷害加成。
+	PRINTFORMW
+CASE 4
+	PRINTFORML 【外界調查】
+	PRINTFORML 選擇『調查區域』和『調查角色』選擇到外界進行調查。
+	PRINTFORML 『調查區域』的等級越高越危險，一開始在不會被襲擊的等級0地區調查吧。
+	PRINTFORML 根據行動消耗SP，到0就無法進行調查。
+	PRINTFORML 高等級區域會湧現瘴氣令HP減少，沒有防壁攻略會很困難。
+	PRINTFORMW
+	PRINTFORML 【道具】
+	PRINTFORML 調查中有時候會獲得道具。
+	PRINTFORML 等級與深度夠高時，也能獲得高品質的東西。
+	PRINTFORML 這些素材能在『次世代改良』時使用。
+	PRINTFORMW
+CASE 5
+	PRINTFORML 以下為懷孕條件。
+	PRINTFORML ・處於危險日
+	PRINTFORML ・受精耐久值為0(危險日時內射能減少耐久值)
+	PRINTFORML 　減少值與玩家的男體等級・精子等級對應。
+	PRINTFORML ・受精耐久值為0時繼續內射會依據受精機率進行判定
+	PRINTFORML 滿足以上條件時居民就會懷孕。
+	PRINTFORMW 懷孕到分娩大約需要30天。
+CASE 6
+	$INPUT_LOOP_SZ
+	CLEARLINE LINECOUNT
+	PRINTFORM [0] 人类　　　　　　　
+	PRINTFORML [11] 妖精
+	PRINTFORML [1] 精灵
+	PRINTFORML [2] 夜魔
+	PRINTFORML [3] 亚人
+	PRINTFORML [4] 自动人偶
+	PRINTFORML [5] 天使
+	PRINTFORML [6] 龙人
+	PRINTFORML [7] 伊斯
+	PRINTFORML [8] 海人
+	PRINTFORML [9] 哈比
+	PRINTFORML [10] 鬼
+	;PRINTFORML [11] 调整者
+	;PRINTFORML [12] 血裔
+	;PRINTFORML [13] 拉米亚
+	PRINTFORML
+	PRINTFORML [999] 返回
+	INPUT
+	L_INPUT = RESULT
+	CLEARLINE LINECOUNT
+	SELECTCASE L_INPUT
+	CASE 0
+		PRINTFORML 建立高度文明的靈長類之首(自稱)，個體力量不會太大但是技術進步的速度是其他種族遠不能及的。
+		PRINTFORML 現在社會也是由人類建立而成，從總數看來是最為繁榮的種族。
+		PRINTFORML 由於科學進歩老化問題也已經克服。
+		PRINTFORML 【出現條件】沒有
+		PRINTFORML 【出現場所】在咖啡廳出沒
+	CASE 1
+		PRINTFORML 長生不老的種族，曾經與自然共存，但隨著文明成長，現在自然派也成為少數。
+		PRINTFORML 不論男女繁殖能力都很低落，純種間的懷孕機率相當低。
+		PRINTFORML 【出現條件】『設施』稀有種保護設施＆『設施』學園等級5以上
+		PRINTFORML 【出現場所】 滿足條件時會在咖啡廳出沒
+		PRINTFORML
+	CASE 2
+		PRINTFORML 以紅色刻印為特徵的種族，快樂主義者且性好奇旺盛，對人類發展出的娛樂興趣濃厚，所以與人類的關係良好。
+		PRINTFORML 自古以來被稱為夜之眷屬，被誤解為邪惡的種族。
+		PRINTFORML 【出現條件】『設施』愛情賓館＆『設施』高級賭場＆『設施』遊戲中心等級5以上
+		PRINTFORML 【出現場所】 滿足條件時會在咖啡廳出沒
+		PRINTFORML
+	CASE 3
+		PRINTFORML 具備動物耳朵與尾巴的種族，性質隨著種類而有各式各樣強大能力的強者，並以此為傲。
+		PRINTFORML 不過大多數與人類的身體性能相差無幾。
+		PRINTFORML 【出現條件】『設施』品種改良設施＆『設施』支援住宅等級5以上
+		PRINTFORML 【出現場所】 滿足條件時會在咖啡廳出沒
+		PRINTFORML
+	CASE 4
+		PRINTFORML 古代文明遺産之一，以奈米機器和矽膠等古代零件構成的機械人類，外觀與人類相差無幾。
+		PRINTFORML 以現今的文明等級仍然無法再現，也有啟動前的個體在遺跡深處沉睡著。
+		PRINTFORML 不知為何在女性個體上，雖然機率低但仍有懷孕的可能性。
+		PRINTFORML 【出現條件】『設施』研究設施等級20以上
+		PRINTFORML 【出現場所】 滿足條件時會在咖啡廳出沒
+	CASE 5
+		PRINTFORML 過去一度滅亡的種族，據說有白或黑的羽翼且容貌美麗。
+		PRINTFORML 雖然現在能用殘存的基因再現，但存在仍然很稀少。
+		PRINTFORML 【出現條件】『設施』醫院等級20以上
+		PRINTFORML 【出現場所】 滿足條件時會在咖啡廳出沒
+		PRINTFORML
+	CASE 6
+		PRINTFORML 瀕臨絕種，性格難以應付的個體很多，但是總和能力極高的種族。
+		PRINTFORML 即使是生存圈限縮的現在，也不會在不被自身認同的居住地中定居。
+		PRINTFORML 【出現條件】都市等級50以上
+		PRINTFORML 【出現場所】 滿足條件時會在咖啡廳出沒
+		PRINTFORML
+	CASE 7
+		PRINTFORML 解開時間秘密的偉大種族，藉由交換精神達到實質不老的存在。之中也有成為人類派閥的異端。
+		PRINTFORML 由於缺席乎肉體疲勞一直讀書而近視，全員都戴著眼鏡。
+		PRINTFORML 身體性能相當極端，作為伴隨部隊會是令人安心的同伴。
+		PRINTFORML 【出現條件】來自伊斯的驅除委託過關
+		PRINTFORML
+	CASE 8
+		PRINTFORML 遠比人類更早以前完成種族演化的存在，但因為外敵出現被放逐到海中。
+		PRINTFORML 由於屬於不易懷孕的體質，在很久以前就與一部份人類有隱密的交流。
+		PRINTFORML 體能雖然不如龍人，但屬於良好的水準。
+		PRINTFORML 【出現場所】 偶而會在咖啡廳出沒
+		PRINTFORML
+	CASE 9
+		PRINTFORML 背上長著鳥類翅膀的種族，基本上為了遠離「外敵」而在森林深處群居著。
+		PRINTFORML 最喜歡水果，繁殖力也比人類高，由於奔放的性格往往不長命。
+		PRINTFORML 以快速的動作擾亂敵人，反觀耐久力很低。
+		PRINTFORML 【出現條件】區域Lv1以上　&　深度30以上
+		PRINTFORML 【出現場所】 調查事件「受傷的鳥人」中能收為同伴
+	CASE 10
+		PRINTFORML 長著兩隻角的褐膚種族(也有少數例外)，種族正動員與「外敵」激戰中。
+		PRINTFORML 有很多不同的性格，跟任何東西比起來尤為喜好戰鬥。
+		PRINTFORML 火力、耐久力拔群，由於漫不經心的體質命中、迴避災難性地低下。
+		PRINTFORML 要運用的話需要補強命中，直到補強完畢前也不適合作為伴隨部隊。
+		PRINTFORML 【出現條件】區域Lv3以上　&　深度50以上
+		PRINTFORML 【出現場所】調查事件「與鬼的相遇」中能收為同伴
+	CASE 11
+		PRINTFORML 據說是幾近滅絕的夢幻種族，有著鮮豔的蝴蝶翅膀。
+		PRINTFORML 由於比精靈更加地與自然同化，「外敵」出現後失去了賴以為生的食糧。
+		PRINTFORML 現在以都市內的植物為主，一部分的個體安靜地生活著。
+		PRINTFORML 攻擊方面很脆弱，但是速度、命中、幸運非常高
+		PRINTFORML 【出現場所】 極低機率在咖啡廳出沒
+	CASE 999
+		GOTO INPUT_LOOP
+	ENDSELECT
+	PRINTFORMW
+	GOTO INPUT_LOOP_SZ
+CASE 7
+	PRINTFORML 每經過90天，會發表這段期間內居民貢獻的點數。
+	PRINTFORML 會依據數量得到對應的加成。
+	PRINTFORML 如果不使用的話能將這期的點數保留到下期，但只要一使用就會全部重置。
+	PRINTFORMW
+CASE 10
+	PRINTFORML 【TP】與居民會話時使用的點數
+	PRINTFORML 【AP】解決居民煩惱時使用的點數，解決煩惱後最大值會增加
+	PRINTFORML 【SP】支援時使用的點數
+	PRINTFORML 【KP】
+	PRINTFORML 【BP】用來回復TP的點數，當居民懷孕時會增加
+	PRINTFORMW
+CASE 11
+	PRINTFORML 開場時要攻略居民肯定會相當花時間，
+	PRINTFORML 想要早點攻略的話，就攻略具備「專情」或「容易墮落」的居民。
+	PRINTFORML 比起普通的居民，「專情」能以2倍、「容易墮落」能以5倍的速度攻略。
+	PRINTFORML 與支援指示並用可以進一步縮短時間。
+	PRINTFORML
+	PRINTFORMW
+CASE 12
+	PRINTFORML 對居民的業務進行干涉可以提升工作效率。
+	PRINTFORML 【-!-】標幟出現時能獲得「ＣＩＴＹ」評價以及大量功績點數。
+	PRINTFORML
+	PRINTFORML 業務進行到一定程度以上，貢獻值會提升。隨著貢獻值提高需要的業務量也會提高。
+	PRINTFORML
+	PRINTFORMW
+	PRINTFORML 以下職務的性質。
+	PRINTFORML
+	PRINTFORML 【社會人】　　　　能獲得大量提升貢獻值時必須的業務點數。
+	PRINTFORML 【偶像】　　　　　依據粉絲數合計給予全居民貢獻加成。根據接受方的職務有不同程度的修正。
+	PRINTFORML 【學生】　　　　　回合結束時有一定機率提升業務點數。也有和【偶像】【娼妓】並存的情形。
+	PRINTFORML 【娼妓】　　　　　依據賣春經驗提供貢獻值最後加成。雖然容易提升但是有上限。
+	PRINTFORML 【治安維持局員】　容易獲得戰鬥經驗，回合結束時也會獲得少量戰鬥經驗值。
+	PRINTFORML 【無業】　　　　　受到偶像的粉絲修正效果較多。
+	PRINTFORMW
+CASE 14
+	PRINTFORML 以下為已實裝的有效技能
+	PRINTFORML 【預判】每一樓層探索次數加成　　　　　
+	PRINTFORML 【聆聽】下次戰鬥發生機率的視覺化　　　　　　【醫療】戰鬥結束時回復體力
+	PRINTFORML 【開鎖】一部分機率事件發生所需
+	PRINTFORML 【隱匿】迴避遭遇戰　　　　　　　　　　　　　【解體】戰鬥勝利時獲得道具
+	PRINTFORML 【解讀】一部分機率事件發生所需
+	PRINTFORMW
+CASE 15
+	PRINTFORML 偶而能在戰鬥勝利時獲得的武器。(深度越高越容易獲得)
+	PRINTFORML 最多裝備5個，總和數值會有一部份反映在部隊的體能上。
+	PRINTFORML 給探索角色各體能追加「各文物合計值÷10」的數值。
+	PRINTFORML 給部隊各總和數值追加「部隊各合計值×文物各合計值％」的數值。
+	PRINTFORML
+	PRINTFORML 數值越高的裝備越強。
+	PRINTFORMW 目前，還不能發揮異能的效果。
+CASE 16
+	PRINTFORML 以獨自實裝的項目為中心說明。
+	PRINTFORML 【ID】　各居民的固有編號。　　　【機密】各居民的機密個體等級。
+	PRINTFORML 【部隊】標示所屬部隊。　　　　　【設施】標示配屬設施。
+	PRINTFORML 【管理】居民受到「玩家」管理的程度，受到常規指定和特別保護之類的會提高。
+	PRINTFORML 【親交】以十位數是陷落素質的種類，個位數是已取得刻印的總和來標示（不含抗拒刻印）。
+	PRINTFORML 【攻略】標示可能構築的關係狀態。下一格是關係的方向性，格數為標示可能取得的的刻印等級，到4格就能陷落。
+	PRINTFORML 【出身】百位數為具備「舊世代人」的來歷，下兩格為種族標示。
+	PRINTFORML 【難度】這項數值越高，解決煩惱的困難度也越高。
+	PRINTFORML 【地位】數值越大代表地位越高，2是上流階級，3是貴族。
+	PRINTFORML 【職業】十位數是職業的種類，個位數則標示年齡層。顯示為11的時候代表沒設定職業。
+	WAIT
+CASE 999
+	RESETCOLOR
+	RESETBGCOLOR
+	RETURN
+CASEELSE
+ENDSELECT
+
+
+
+
+GOTO INPUT_LOOP
+

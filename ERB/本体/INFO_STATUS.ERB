@@ -1,0 +1,1680 @@
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+;
+;	Module		:INFO_STATUS.ERB
+;	Facility	:情报顯示(STATUS)。
+;				 情报を顯示する関数を纏める。
+;
+;	Licence		:ライセンスフリー。
+;
+;	Modification Data:
+;
+;	Edit	Date			Author					Reason
+;	001		20XX/XX/XX		----					新規作成
+;	002		2014/09/28		なるはや				両亲顯示を追加
+;	003		2017/02/28		morph					関数追加（INFO_STATUS_GROUP/INFO_STATUS_GET_BY_LABEL）
+;	004		2018/11/13		いんどまん				@INFO_STATUS_GET_BY_LABELに伴随/后方/回收部队で必要とされる能力值合計を顯示するためのIF分岐追加
+;	005		2018/11/14		morph					伴随/后方/回收部队の能力值算出に使用する例外处理を@C_GET_CVAR_VALUEに移动、@INFO_STATUS_GET_BY_LABELの記述を差し戻し
+;
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+
+;===============================================================================
+;  ◇记载関数一覧(记载顺)
+;
+;		Module Name						Explanation
+;
+; *- 顯示系
+;
+;	・ INFO_STATUS_LIST					顯示:STATUS画面(LIST)
+;
+;	# STATUS系(画面)
+;	・ INFO_STATUS_MAIN					顯示:STATUS画面
+;	・ INFO_STATUS_GROUP				顯示:配列利用情报顯示関数
+;	・ INFO_STATUS_BASES_PALAM			顯示:STATUS画面(基本PALAM)
+;	・ INFO_STATUS_BASES_LOG			顯示:STATUS画面(基本履历)
+;	・ INFO_STATUS_TRAIN_DATA			顯示:STATUS画面(调教履历)
+;
+;	# STATUS系 - 详细
+;	・ INFO_STATUS_HEADER				顯示:STATUS(ヘッダ)
+;	・ INFO_STATUS_MARK					顯示:STATUS(刻印)
+;	・ INFO_STATUS_TALENT				顯示:STATUS(素质)
+;	・ INFO_STATUS_ABL					顯示:STATUS(能力)
+;	・ INFO_STATUS_EXP					顯示:STATUS(经验)
+;	・ INFO_STATUS_JUEL					顯示:STATUS(珠)
+;	・ INFO_STATUS_GOTJUEL				顯示:STATUS(取得珠)
+;	・ INFO_STATUS_INTRODUCTION			顯示:STATUS(介绍)
+;	・ INFO_STATUS_OTHER				顯示:STATUS(其他)
+;	・ INFO_INTRODUCTION				顯示:STATUS(介绍)
+;
+;	# 其他
+;	・ INFO_SIMPLE_STATUS_EXP			簡易顯示:STATUS(经验)
+;	・ INFO_STATUS_GET_BY_LABEL			式中関数:ラベル使用角色体能參照関数
+
+
+;===============================================================================
+
+;-------------------------------------------------------------------------------
+;   STATUS系(画面)
+;-------------------------------------------------------------------------------
+
+;=================================================
+;   sub INFO_STATUS_LIST
+;=================================================
+;   顯示:STATUS画面(LIST)
+;-------------------------------------------------
+@INFO_STATUS_LIST
+#DIM L_INPUT
+#DIMS L_ERR_MSG
+
+;-----------------------------
+;- 初期处理
+;-----------------------------
+L_INPUT=0
+L_ERR_MSG=
+
+;-----------------------------
+;- 檔案清單
+;-----------------------------
+RESULT:1=0
+$DATA_LIST
+
+;- LIST:角色清單
+CALL LIST_CHARA(@"請选择要顯示体能的角色　", RESULT:1, L_ERR_MSG)
+L_INPUT = RESULT
+
+;- 顯示:ページ別
+SELECTCASE L_INPUT
+	;- 結束
+	CASE 1000
+		RETURN 0
+	;- 角色
+	CASEELSE
+		;顯示:STATUS画面
+		CALL INFO_STATUS_MAIN(L_INPUT)
+		GOTO DATA_LIST
+ENDSELECT
+RESTART
+
+
+;=================================================
+;   sub INFO_STATUS_MAIN
+;=================================================
+;   顯示:STATUS画面
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_MAIN(ARG)
+#DIM L_TMP
+#DIM L_PAGE_NOW
+#DIM L_PAGE_下限
+#DIM L_PAGE_上限
+#DIM L_PAGE_前
+#DIM L_PAGE_次
+
+#DIM L_CHARA_前
+#DIM L_CHARA_次
+
+L_TMP=0
+L_PAGE_下限=0
+L_PAGE_上限=0
+
+L_CHARA_前=0
+L_CHARA_次=0
+
+;-----------------------------
+;- 定数设定
+;-----------------------------
+L_PAGE_下限 = 0
+L_PAGE_上限 = 7
+
+
+;-----------------------------
+;- 处理开始
+;-----------------------------
+$PRINT_LOOP_1
+
+L_CHARA_前 = VAR_GET_CL("PREV",ARG)
+L_CHARA_次 = VAR_GET_CL("NEXT",ARG)
+
+L_PAGE_前 = (L_PAGE_NOW > L_PAGE_下限) ? 1 # 0
+L_PAGE_次 = (L_PAGE_NOW < L_PAGE_上限) ? 1 # 0
+
+;- 顯示:STATUS(ヘッダ)
+		REDRAW 0
+		CLEARLINE LINECOUNT
+CALL INFO_STATUS_HEADER(ARG)
+PRINTL
+
+;- 顯示:ページ別
+SELECTCASE L_PAGE_NOW
+	CASE 0
+		;- 顯示:STATUS画面(基本PALAM)
+		DRAWLINE
+		CALL INFO_STATUS_BASES_PALAM(ARG)
+	CASE 1
+		;- 顯示:STATUS画面(详细情报)
+		DRAWLINE
+		CALL INFO_PERSONAL(ARG)
+	CASE 2
+		;- 顯示:STATUS画面(RPG情报)
+		DRAWLINE
+		CALL INFO_RPG(ARG)
+	CASE 3
+		;- 顯示:STATUS画面(隠し性情报)
+		DRAWLINE
+		CALL INFO_SEX(ARG)
+	CASE 4
+		;- 顯示:STATUS画面(调教履历)
+		DRAWLINE
+		CALL INFO_STATUS_TRAIN_DATA(ARG)
+	CASE 5
+		;- 顯示:STATUS画面(素质＆初夜)
+		DRAWLINE
+		CALL INFO_STATUS_OTHER(ARG)
+	CASE 6
+		;- 顯示:STATUS画面(基本履历)
+		DRAWLINE
+		CALL INFO_STATUS_BASES_LOG(ARG)
+	CASE 7
+		;- 顯示:STATUS画面(介绍)
+		DRAWLINE
+		CALL INFO_INTRODUCTION(ARG)
+ENDSELECT
+
+;- 顯示:选择部
+PRINTFORMLC [1007]上一頁
+PRINTLC [1000]返回
+PRINTFORMLC [1009]下一頁
+IF L_PAGE_NOW == 2
+	;PRINTFORMLC [3000] 服装变更
+ENDIF
+PRINTL
+
+PRINTFORMLC \@(L_CHARA_前 > -1) ? [1001]上个角色 # %" " * 16%\@
+PRINTFORMLC   %" " * 18%
+PRINTFORMLC \@(L_CHARA_次 > -1) ? [1003]下个角色 # %" " * 16%\@
+
+
+$INPUT_LOOP_1
+INPUT
+SELECTCASE RESULT
+	CASE 1000
+		RETURN
+	;服装变更
+	CASE 3000
+		;- 服裝:變更画面
+		CALL CLOTHES_CHG_MAIN(ARG)
+
+	;上一頁
+	CASE 1007
+		IF L_PAGE_NOW == 0
+			L_PAGE_NOW += 7
+		ELSEIF L_PAGE_前
+			L_PAGE_NOW -= 1
+		ENDIF
+	;下一頁
+	CASE 1009
+		IF L_PAGE_NOW ==7
+			L_PAGE_NOW -= 7
+		ELSEIF L_PAGE_次
+			L_PAGE_NOW += 1
+		ENDIF
+	;上个角色
+	CASE 1001
+		SIF L_CHARA_前 > -1
+			ARG = L_CHARA_前
+	;下个角色
+	CASE 1003
+		SIF L_CHARA_次 > -1
+			ARG = L_CHARA_次
+	CASEELSE
+		;- INPUT错誤对应
+		CALL C_INPUT_ERROR
+		GOTO INPUT_LOOP_1
+ENDSELECT
+
+GOTO PRINT_LOOP_1
+
+
+
+;-------------------------------------------------
+;配列利用情报顯示関数
+;-------------------------------------------------
+;@INFO_STATUS_MAINからパクった
+;配列を渡さないと机能しないので注意
+;ページや角色清單の端と端がつながってます
+;渡された配列に含まれる登錄編號の角色の情报を閲覧することが出来る
+;戻り值：OPに「最终确认」が含まれる場合、1で决定を行うとRESULTに顯示角色の登錄編號が記錄される
+;
+;OPに含まれる文字列によって机能を切り替える
+;「最终确认」　　このオプションを指定して
+;　　　　　　　　1で决定を行うとRESULTに顯示角色の登錄編號が記錄される
+;「角色固定」　このオプションを指定すると角色の切替ができない
+@INFO_STATUS_GROUP(CHARA_LIST, CHARA_VIEW, CHARA_CNT, OP)
+#DIM REF   CHARA_LIST      ;顯示に使用する角色清單、必須
+#DIM       CHARA_VIEW      ;现在閲覧中の角色の清單上の位置
+#DIM       CHARA_CNT       ;角色清單の尺寸
+#DIMS      OP              ;實行オプション
+#DIM       L_PAGE_NOW  = 0 ;閲覧中のページ数
+#DIM CONST PAGE_SIZE   = 8 ;ページの尺寸
+{
+#DIMS CONST TYPE_STATUS, 8 =
+	"基本PALAM",
+	"详细情报",
+	"RPG情报",
+	"生殖情报",
+	"调教履历",
+	"特殊素质＆初夜",
+	"基本履历",
+	"人物介绍"
+}
+
+;- 顯示:STATUS(ヘッダ)
+REDRAW 0
+CLEARLINE LINECOUNT
+CALL INFO_STATUS_HEADER(CHARA_LIST:CHARA_VIEW)
+PRINTL
+
+SELECTCASE TYPE_STATUS:L_PAGE_NOW
+CASE "基本PALAM",
+	;- 顯示:STATUS画面(基本PALAM)
+	DRAWLINE
+	CALL INFO_STATUS_BASES_PALAM(CHARA_LIST:CHARA_VIEW)
+CASE "详细情报",
+	;- 顯示:STATUS画面(详细情报)
+	DRAWLINE
+	CALL INFO_PERSONAL(CHARA_LIST:CHARA_VIEW)
+CASE "RPG情报",
+	;- 顯示:STATUS画面(RPG情报)
+	DRAWLINE
+	CALL INFO_RPG(CHARA_LIST:CHARA_VIEW)
+CASE "生殖情报",
+	;- 顯示:STATUS画面(隠し性情报)
+	DRAWLINE
+	CALL INFO_SEX(CHARA_LIST:CHARA_VIEW)
+CASE "调教履历",
+	;- 顯示:STATUS画面(调教履历)
+	DRAWLINE
+	CALL INFO_STATUS_TRAIN_DATA(CHARA_LIST:CHARA_VIEW)
+CASE "特殊素质＆初夜",
+	;- 顯示:STATUS画面(初夜)
+	DRAWLINE
+	CALL INFO_STATUS_OTHER(CHARA_LIST:CHARA_VIEW)
+CASE "基本履历",
+	;- 顯示:STATUS画面(基本履历)
+	DRAWLINE
+	CALL INFO_STATUS_BASES_LOG(CHARA_LIST:CHARA_VIEW)
+CASE "人物介绍"
+	;- 顯示:STATUS画面(介绍)
+	DRAWLINE
+	CALL INFO_INTRODUCTION(CHARA_LIST:CHARA_VIEW)
+ENDSELECT
+
+IF STRCOUNT(OP, "「最终确认」") || STRCOUNT(OP, "「角色固定」")
+	PRINTFORM %"　" * 8%
+ELSE
+	PRINTBUTTON "[7] - 　设施配属", 7
+ENDIF
+PRINTFORM %"　" * 1%
+IF STRCOUNT(OP, "「角色固定」")
+ELSE
+	PRINTBUTTON "[8] - 上个角色", 8
+ENDIF
+PRINTFORM %"　" * 1%
+IF STRCOUNT(OP, "「最终确认」") || STRCOUNT(OP, "「角色固定」")
+	PRINTFORM %"　" * 8%
+ELSE
+	PRINTBUTTON "[9] - 　部队配属", 9
+ENDIF
+PRINTFORML
+
+PRINTBUTTON @"[4] - %TYPE_STATUS:((L_PAGE_NOW + PAGE_SIZE - 1) % PAGE_SIZE), 10%", 4
+PRINTFORM %"　" * 1%
+PRINTFORM %"　" * 8%
+PRINTFORM %"　" * 1%
+PRINTBUTTON @"[6] - %TYPE_STATUS:((L_PAGE_NOW + PAGE_SIZE + 1) % PAGE_SIZE), 10%", 6
+PRINTFORML
+PRINTFORM %"　" * 8%
+PRINTFORM %"　" * 1%
+IF STRCOUNT(OP, "「角色固定」")
+ELSE
+	PRINTBUTTON "[2] - 下个角色", 2
+ENDIF
+PRINTFORM %"　" * 1%
+PRINTFORML
+
+IF STRCOUNT(OP, "「最终确认」")
+	PRINTBUTTON "[1] - 　　　决定", 1
+	PRINTFORM 　　　　　　　　　　
+	PRINTBUTTON "[0] - 取消", 0
+	PRINTFORML
+ELSE
+	PRINTBUTTON "[0] - 返回", 0
+ENDIF
+
+DO
+	ONEINPUT
+	SELECTCASE RESULT
+	CASE 1
+		SIF !STRCOUNT(OP, "「最终确认」")
+			GOTO RETRY
+		RETURN CHARA_LIST:CHARA_VIEW
+	CASE 0
+		RETURN -1
+	[SKIPSTART]
+	;服装变更
+	CASE 3000
+		;- 服裝:變更画面
+		CALL CLOTHES_CHG_MAIN(ARG)
+	[SKIPEND]
+	;上一頁
+	CASE 4
+		L_PAGE_NOW = (L_PAGE_NOW + PAGE_SIZE - 1) % PAGE_SIZE
+	;下一頁
+	CASE 6
+		L_PAGE_NOW = (L_PAGE_NOW + PAGE_SIZE + 1) % PAGE_SIZE
+	;设施配属
+	CASE 7
+		SIF STRCOUNT(OP, "「最终确认」") || STRCOUNT(OP, "「角色固定」")
+			GOTO RETRY
+		CALL SELECT_WOKER(CHARA_LIST:CHARA_VIEW)
+	;上个角色
+	CASE 8
+		SIF STRCOUNT(OP, "「角色固定」")
+			GOTO RETRY
+		CHARA_VIEW = (CHARA_VIEW + CHARA_CNT - 1) % CHARA_CNT
+	;部队配属
+	CASE 9
+		SIF STRCOUNT(OP, "「最终确认」") || STRCOUNT(OP, "「角色固定」")
+			GOTO RETRY
+		CALL SELECT_SUPPORT(CHARA_LIST:CHARA_VIEW)
+	;下个角色
+	CASE 2
+		SIF STRCOUNT(OP, "「角色固定」")
+			GOTO RETRY
+		CHARA_VIEW = (CHARA_VIEW + CHARA_CNT + 1) % CHARA_CNT
+	CASEELSE
+		$RETRY
+		;- INPUT错誤对应
+		CALL C_INPUT_ERROR("输入无效")
+		CONTINUE
+	ENDSELECT
+	BREAK
+LOOP 1
+RESTART
+
+
+
+;@INFO_STATUS_GROUPの呼び出し用関数
+;角色編號を渡すことで単体の能力顯示関数として动作する
+@INFO_STATUS_SINGLE(L_C_ID, OP)
+#DIM  L_C_ID
+#DIMS OP
+CALL INFO_STATUS_GROUP(L_C_ID, 0, 1, OP + "「角色固定」")
+
+
+
+;=================================================
+;   sub INFO_STATUS_BASES_PALAM
+;=================================================
+;   顯示:STATUS画面(基本PALAM)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_BASES_PALAM(ARG)
+
+;-- 刻印
+
+;- ライン顯示:見出し
+CALL C_HEADLINE("刻印(MARK)")
+;- 顯示:STATUS(刻印)
+CALL INFO_STATUS_MARK(ARG)
+PRINTL
+
+
+;-- 素质
+
+;- ライン顯示:見出し
+CALL C_HEADLINE("素质(TALENT)")
+;- 顯示:STATUS(素质)
+CALL INFO_STATUS_TALENT(ARG)
+PRINTL
+
+
+;-- 能力
+;- ライン顯示:見出し
+CALL C_HEADLINE("能力(ABL)")
+;- 顯示:STATUS(能力)
+CALL INFO_STATUS_ABL(ARG)
+PRINTL
+
+
+;=================================================
+;   sub INFO_STATUS_BASES_LOG
+;=================================================
+;   顯示:STATUS画面(基本履历)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_BASES_LOG(ARG)
+
+;-- 经验
+
+;- ライン顯示:見出し
+CALL C_HEADLINE("经验(EXP)")
+;- 顯示:STATUS(经验)
+CALL INFO_STATUS_EXP(ARG)
+PRINTL
+
+
+;-- 珠
+
+;- ライン顯示:見出し
+CALL C_HEADLINE("珠(JUEL)")
+;- 顯示:STATUS(珠)
+CALL INFO_STATUS_JUEL(ARG)
+PRINTL
+
+;=================================================
+;   sub INFO_STATUS_TRAIN_DATA
+;=================================================
+;   顯示:STATUS画面(调教履历)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_TRAIN_DATA(ARG)
+#DIM L_I
+
+L_I = ARG
+SETCOLOR 250,100,200
+PRINTFORML ――――――――――――――――――――――――%CALLNAME:L_I%的调教履历――――――――――――――――――――――――
+
+IF  MASTER != L_I
+	IF Exp:L_I:主人调教经验 >= 500
+		PRINTFORM 【关注】
+		IF CFLAG:L_I:体型 == 2
+			PRINTFORML 		%CALLNAME:MASTER%针对那性感丰满的身体，已经抱过几次。
+		ELSEIF CFLAG:L_I:体型 == 0
+			PRINTFORML 		%CALLNAME:MASTER%针对那美丽奢华的身体，已经抱过几次。
+		ELSE
+			PRINTFORML 		%CALLNAME:MASTER%看上那副容貌，已经抱过几次。
+		ENDIF
+	ENDIF
+	IF TALENT:L_I:崇拜 == 1
+		PRINTFORML 【崇拜】		%CALLNAME:L_I%对%CALLNAME:MASTER%打从心底崇拜。
+	ELSEIF TALENT:L_I:爱人 == 1
+		PRINTFORML 【爱人】		%CALLNAME:L_I%对%CALLNAME:MASTER%抱有深切的爱情。
+	ELSEIF TALENT:L_I:情妇 == 1
+		PRINTFORML 【情妇】		%CALLNAME:L_I%陶醉在与%CALLNAME:MASTER%的肉体关系中。
+	ENDIF
+
+	SIF TALENT:L_I:合意 == 1
+		PRINTFORML 【合意】		同意与%CALLNAME:MASTER%进行性行为。
+
+	SIF TALENT:L_I:调教完成 == 1
+		PRINTFORML 【调教完成】		被施加性方面的调教，身体经常寻求着快乐。
+
+	IF Exp:L_I:乳交经验 >= 900
+		PRINTFORML 【乳交LvMAX】	有着用胸部轻易让人射精的技巧。
+	ELSEIF Exp:L_I:乳交经验 >= 700
+		PRINTFORML 【乳交Lv4】		能給予和性行为同等的快乐。
+	ELSEIF Exp:L_I:乳交经验 >= 500
+		PRINTFORML 【乳交Lv3】		不论怎么样的阴茎都能使其射精。
+	ELSEIF Exp:L_I:乳交经验 >= 300
+		PRINTFORML 【乳交Lv2】		能巧妙地使用胸部引导使人射精。
+	ELSEIF Exp:L_I:乳交经验 >= 100
+		PRINTFORML 【乳交Lv1】		能用胸部使人射精。
+	ENDIF
+
+	IF Exp:L_I:口交经验 >= 900
+		PRINTFORML 【口交LvMAX】		在她的口交中没人可以忍着不射精。
+	ELSEIF Exp:L_I:口交经验 >= 700
+		PRINTFORML 【口交Lv4】		拥有能給予和性器同等快乐的嘴。
+	ELSEIF Exp:L_I:口交经验 >= 500
+		PRINTFORML 【口交Lv3】		能做出促进射精的动作技巧。
+	ELSEIF Exp:L_I:口交经验 >= 300
+		PRINTFORML 【口交Lv2】		能够轻松地運用舌头。
+	ELSEIF Exp:L_I:口交经验 >= 100
+		PRINTFORML 【口交Lv1】		已经习惯在射精时用嘴含住精液。
+	ENDIF
+
+	IF Exp:L_I:性交经验 >= 900
+		PRINTFORML 【性交LvMAX】	腰部淫靡地摆动催促射精，在精液全部吐出前绝不放开，最喜欢交尾。
+	ELSEIF Exp:L_I:性交经验 >= 700
+		PRINTFORML 【性交Lv4】		对不同的性別有所青睐，沉迷于性交。
+	ELSEIF Exp:L_I:性交经验 >= 500
+		PRINTFORML 【性交Lv3】		阴道内没有阴茎就会坐立不安，阴道内经常黏糊糊的。
+	ELSEIF Exp:L_I:性交经验 >= 300
+		PRINTFORML 【性交Lv2】		完全顺应交尾，把握阴茎的机能，并能在阴道内察觉其状況。
+	ELSEIF Exp:L_I:性交经验 >= 100
+		PRINTFORML 【性交Lv1】		已经习惯与雄性交尾，适应了阴茎进入阴道内时的异物感。
+	ENDIF
+
+	SIF TALENT:L_I:同性恋 == 1 && (TALENT:L_I:崇拜 == 1|| TALENT:L_I:爱人 == 1 || TALENT:L_I:情妇 == 1)
+		PRINTFORML 【百合堕落】		屈服于雄性及存在于异性间的性行为，认同做为女性怀孕产子的存在方式。
+
+	SIF TALENT:L_I:NTR度 == 1
+		PRINTFORML 【NTR】		%CALLNAME:L_I%有和并非%CALLNAME:MASTER%的某人私通过…。
+
+	SIF TALENT:L_I:NTL == 1
+		PRINTFORML 【NTL】		原本应该爱着某人的%CALLNAME:L_I%，不论身心都已成为%CALLNAME:MASTER%的所有物。
+
+	SIF CFLAG:L_I:为你生下的孩子数
+		PRINTFORML 【孕育完成】		用%CALLNAME:MASTER%的精子受精并受胎，然后生下继承%CALLNAME:MASTER%血统的孩子。
+
+	IF TALENT:L_I:托卵完成 == 1
+		PRINTFORML 【托卵完成】		和伴侣养育的孩子并非伴侣的血脉，而是继承%CALLNAME:MASTER%血统与爱的孩子。
+	ELSEIF TALENT:L_I:托卵 == 1
+		PRINTFORML 【托卵】		怀着并非互许终身的对象，而是和%CALLNAME:MASTER%的孩子。
+	ENDIF
+
+	IF CFLAG:L_I:子宫精液储藏量合计 > 0
+		PRINTFORM 【在和%CALLNAME:MASTER%生孩子】
+		SIF CFLAG:L_I:子宫精液储藏量 > 0
+		PRINTFORM
+		PRINTFORM 由于%CALLNAME:MASTER%的授种，子宫殘留着{CFLAG:L_I:子宫精液储藏量/500}ml的精液，
+		PRINTFORML 现在子宫总共积蓄过{CFLAG:L_I:子宫精液储藏量合计/500}ml的精液。
+	ENDIF
+ENDIF
+
+PRINTFORML ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――
+RESETCOLOR
+;-------------------------------------------------------------------------------
+;   STATUS系(详细)
+;-------------------------------------------------------------------------------
+
+;=================================================
+;   sub INFO_STATUS_HEADER
+;=================================================
+;   顯示:STATUS(ヘッダ)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_HEADER(ARG)
+;顯示:ページヘッダ
+CALL C_LINE
+PRINTFORM NO.%TOSTR(CFLAG:ARG:个别编号) , 3, LEFT%:
+PRINTFORM %CALLNAME:ARG,24,LEFT%
+;体力
+CALL VAR_BAR_BASE(ARG, 0, 1)
+
+PRINT 　　
+
+;- 情报:危险日
+CALL INFO_危险日(ARG)
+
+PRINTL
+
+;=================================================
+;   sub INFO_STATUS_MARK
+;=================================================
+;   顯示:STATUS(刻印)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_MARK(ARG)
+#DIM L_CNT
+
+L_CNT=0
+
+VARSET LOCAL
+FOR LOCAL,0,VARSIZE("MARK")
+
+	LOCALS = %MARKNAME:LOCAL%
+	SIF STRLENS(LOCALS) <= 0
+		CONTINUE
+	LOCAL:1 = MARK:ARG:LOCAL
+
+	SIF LOCAL:1 <= 0 && FLAG:STATUS隐藏模式
+		SETCOLOR COLOR("隐藏")
+	PRINTFORM %LOCALS , 10%
+	PRINTFORM :LV{LOCAL:1}
+	BAR LOCAL:1, 3, 3
+	PRINT
+	RESETCOLOR
+
+	L_CNT += 1
+	IF L_CNT > 3
+		PRINTL
+		L_CNT = 0
+	ENDIF
+NEXT
+
+SIF !LINEISEMPTY()
+	PRINTL
+
+
+;=================================================
+;   sub INFO_STATUS_TALENT
+;=================================================
+;   顯示:STATUS(素质)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;  ARG:1				CSV優先
+;-------------------------------------------------
+@INFO_STATUS_TALENT(ARG, ARG:1=0)
+#DIM L_CNT
+#DIM L_COLOR
+#DIM L_I
+#DIMS L_STR
+
+L_CNT=0
+L_COLOR = GETCOLOR()
+
+
+
+FOR L_I,0,VARSIZE("TALENT")
+	SELECTCASE L_I
+		CASE 0
+			PRINT 【ABL素质】 ：
+		CASE 50
+			PRINTL
+			PRINT 【体质素质】：
+			L_CNT = 0
+		CASE 100
+			PRINTL
+			PRINT 【个人素质】：
+			L_CNT = 0
+		CASE 200
+			PRINTL
+			PRINT 【对人素质】：
+			L_CNT = 0
+		CASE 3000
+			PRINTL
+			PRINT 【机密素质】：
+			L_CNT = 0
+	ENDSELECT
+
+	;- DB:TALENT名称
+	L_STR = %DB_TALENT_NAME(ARG, TALENTNAME:L_I, ARG:1)%
+
+	;-特殊変換
+	SELECTCASE TALENTNAME:L_I
+		CASE "始祖"
+			IF CFLAG:(ARG):次世代创造子孙数
+				L_STR = 始祖:创造数{MIN(CFLAG:(ARG):次世代创造子孙数, 999), 3, RIGHT}
+			ELSE
+				L_STR =
+			ENDIF
+		CASE "发色","发型","目","瞳色","唇","体型","乳头","阴毛","阴茎尺寸","母亲"
+		L_STR =
+	ENDSELECT
+
+
+	;-特殊変換
+	SELECTCASE TALENTNAME:L_I
+		CASE "男性"
+			IF VAR_SEX(ARG, ARG:1)
+				L_STR = 女性
+			ELSE
+				L_STR = 男性
+			ENDIF
+	ENDSELECT
+
+	SIF STRLENS(L_STR) <= 0
+		CONTINUE
+
+	IF L_CNT > 75
+		PRINTL
+		PRINT 　　　　　　　
+		L_CNT = 0
+	ENDIF
+
+	L_CNT += STRLENS(L_STR)
+
+	;-着色
+	SELECTCASE L_STR
+		CASE "处女", "伪娘"
+			SETCOLOR 0xFF66CC
+		CASE "童贞"
+			SETCOLOR COLOR("群青")
+		CASE "非战斗员","非人型","抵抗","残次品","怀疑人类"
+			SETCOLOR COLOR("群青")
+		CASE "排卵药", "怀孕", "受精" ,"崇拜" ,"爱人" ,"情妇" ,"专情" ,"容易堕落"
+			SETCOLOR COLOR("粉紅")
+		CASE "NTR", "恶魔", "半魔", "造魔", "把柄", "NTL","托卵","托卵完成"
+			SETCOLOR COLOR("紫")
+		CASE "非合意", "被侵犯","缺席","记忆处理完成"
+			SETCOLOR 250,0,0
+		CASE "高贵之血"
+			SETCOLOR 50,50,250
+		CASE "合意"
+			SETCOLOR 250,250,100
+		CASE "圣女的子宫", "倾城倾国"
+			SETCOLOR 250,250,200
+		CASE "学生", "大学生", "高中生", "国中生", "小学生"
+			IF (TALENT:(ARG:0):偶像 || TALENT:(ARG:0):娼妓)
+				SETCOLOR 250,100,50
+			ELSE
+				SETCOLOR 50,250,50
+			ENDIF
+		CASE "偶像", "社会人", "娼妓", "治安维持局员"
+			SETCOLOR 50,250,50
+		CASE "机密Lv1个体", "机密Lv2个体", "机密Lv3个体"
+			SETCOLOR 50,250,50
+		CASE "机密Lv4个体", "机密Lv5个体", "机密Lv6个体"
+			SETCOLOR 250,250,50
+		CASE "机密Lv7个体", "机密Lv8个体", "机密Lv9个体"
+			SETCOLOR 250,50,50
+	ENDSELECT
+
+	PRINTFORM [%L_STR%]
+	SETCOLOR L_COLOR
+
+	;- 外枠分を加算
+	L_CNT += 2
+
+NEXT
+
+SIF !LINEISEMPTY()
+	PRINTL
+
+
+;=================================================
+;   sub INFO_STATUS_ABL
+;=================================================
+;   顯示:STATUS(能力)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;  ARG:1				空檔案除外
+;-------------------------------------------------
+@INFO_STATUS_ABL(ARG, ARG:1=0)
+#DIM L_CNT
+#DIM L_COLOR
+
+L_CNT=0
+L_COLOR = GETCOLOR()
+
+VARSET LOCAL
+FOR LOCAL,0,VARSIZE("ABL")
+
+	LOCALS = %ABLNAME:LOCAL%
+	SIF STRLENS(LOCALS) <= 0
+		CONTINUE
+	LOCAL:1 = ABL:ARG:LOCAL
+
+	SIF ARG:1 && !LOCAL:1
+		CONTINUE
+
+	SIF LOCAL:1 <= 0 && FLAG:STATUS隐藏模式
+		SETCOLOR COLOR("隐藏")
+	PRINTFORM %LOCALS , 10%
+	PRINTFORM :LV{LOCAL:1}
+	BAR (LOCAL:1/3), 3, 3
+	PRINT
+	SETCOLOR L_COLOR
+
+	L_CNT += 1
+	IF L_CNT > 3
+		PRINTL
+		L_CNT = 0
+	ENDIF
+NEXT
+
+SIF !LINEISEMPTY()
+	PRINTL
+
+;=================================================
+;   sub INFO_STATUS_EXP
+;=================================================
+;   顯示:STATUS(经验)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;  ARG:1				空檔案除外
+;-------------------------------------------------
+@INFO_STATUS_EXP(ARG, ARG:1=0)
+#DIM L_CNT
+#DIM L_COLOR
+
+L_CNT=0
+L_COLOR = GETCOLOR()
+VARSET LOCAL
+
+FOR LOCAL,0,VARSIZE("EXP")
+
+	;ヘッダー
+	SELECTCASE LOCAL
+		CASE 0
+			PRINTFORM %"■======= 通常经验 =======■"%
+			L_CNT = 1
+		CASE 50
+			SIF !LINEISEMPTY()
+				PRINTL
+			PRINTFORM %"■=== 异常经验 ===■"%
+			L_CNT = 1
+		CASE 80
+			SIF !LINEISEMPTY()
+				PRINTL
+			PRINTFORM %"■====== 其他经验 ======■"%
+			L_CNT = 1
+	ENDSELECT
+
+	LOCALS = %EXPNAME:LOCAL%
+	SIF STRLENS(LOCALS) <= 0
+		CONTINUE
+	LOCAL:1 = EXP:ARG:LOCAL
+
+	SIF ARG:1 && !LOCAL:1
+		CONTINUE
+
+	;CHK:数量(必須顯示のみ素通り)
+	SELECTCASE LOCAL
+		CASE 0,50,60
+		CASEELSE
+;			SIF LOCAL:1 <= 0
+;				CONTINUE
+	ENDSELECT
+
+	SIF LOCAL:1 <= 0 && FLAG:STATUS隐藏模式
+		SETCOLOR COLOR("隐藏")
+	PRINTFORM %LOCALS , 16%
+	PRINTFORM :LV{GETEXPLV(LOCAL:1,9)}
+	PRINTFORM (%TOSTR(LOCAL:1) , 4%回)
+	SETCOLOR L_COLOR
+	PRINT
+
+	L_CNT += 1
+	IF L_CNT > 2
+		PRINTL
+		L_CNT = 0
+	ENDIF
+
+NEXT
+
+SIF !LINEISEMPTY()
+	PRINTL
+
+;=================================================
+;   sub INFO_STATUS_JUEL
+;=================================================
+;   顯示:STATUS(珠)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_JUEL(ARG)
+#DIM L_HIT
+#DIM L_CNT
+
+L_HIT=0
+L_CNT=0
+VARSET LOCAL
+
+FOR LOCAL,0,VARSIZE("ABL")
+
+	LOCALS = %PALAMNAME:LOCAL%
+	SIF STRLENS(LOCALS) <= 0
+		CONTINUE
+	LOCAL:1 = JUEL:ARG:LOCAL
+
+	SIF LOCAL:1 <= 0 && FLAG:STATUS隐藏模式
+		SETCOLOR COLOR("隐藏")
+	LOCALS += "之珠"
+	PRINTFORM %LOCALS , 14%:
+	PRINTFORM %TOSTR(LOCAL:1) , 5%
+	PRINT
+	RESETCOLOR
+	L_HIT = 1
+
+	L_CNT += 1
+	IF L_CNT > 3
+		PRINTL
+		L_CNT = 0
+		L_HIT = 0
+	ENDIF
+NEXT
+
+SIF L_HIT
+	PRINTL
+
+;=================================================
+;   sub INFO_STATUS_GOTJUEL
+;=================================================
+;   顯示:STATUS(取得珠)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_GOTJUEL(ARG)
+#DIM L_HIT
+#DIM L_CNT
+
+L_HIT=0
+L_CNT=0
+VARSET LOCAL
+
+FOR LOCAL,0,VARSIZE("ABL")
+
+	LOCALS = %PALAMNAME:LOCAL%
+	SIF STRLENS(LOCALS) <= 0
+		CONTINUE
+	LOCAL:1 = GOTJUEL:ARG:LOCAL
+	LOCAL:2 = JUEL:ARG:LOCAL
+
+	SIF LOCAL:1 <= 0
+		CONTINUE
+	LOCALS += "之珠"
+	PRINTFORM %LOCALS , 10%:
+	PRINTFORM %TOSTR(LOCAL:2) , 5%(+%TOSTR(LOCAL:1) , 5%)
+	PRINT
+	RESETCOLOR
+	L_HIT = 1
+
+	L_CNT += 1
+	IF L_CNT > 3
+		PRINTL
+		L_CNT = 0
+		L_HIT = 0
+	ENDIF
+NEXT
+SIF L_HIT
+	PRINTL
+PRINTL
+
+;=================================================
+;   sub INFO_STATUS_INTRODUCTION
+;=================================================
+;   顯示:STATUS(介绍)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;  ARG:1				CSV優先
+;-------------------------------------------------
+@INFO_STATUS_INTRODUCTION(ARG, ARG:1=0)
+#DIM L_TMP
+
+IF ARG:1
+	L_TMP = ARG
+ELSE
+	L_TMP = NO:ARG
+ENDIF
+
+REPEAT 4
+	PRINTSL CSVCSTR(L_TMP, GETNUM(CSTR, "角色介绍" + TOSTR(COUNT)), 0)
+REND
+
+;=================================================
+;   sub INFO_STATUS_OTHER
+;=================================================
+;   顯示:STATUS(其他)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_STATUS_OTHER(ARG)
+#DIM L_CNT
+#DIM L_TMP
+#DIMS L_STR
+#DIM L_I
+
+L_I = ARG
+
+;- 主人の場合
+IF ARG == MASTER
+	PRINTFORML 陷落人数:{FLAG:陷落人数}人
+	PRINTFORML
+	PRINTFORML
+ELSE
+	;-----------------------------
+	;- NTR
+	;-----------------------------
+	L_CNT=0
+	L_TMP=CFLAG:ARG:NTR再陷落次数
+	IF L_TMP
+		PRINTFORML NTR再陷落次数：{L_TMP,2}回
+		L_CNT ++
+	ENDIF
+	L_TMP=CFLAG:ARG:NTR好感度
+	IF L_TMP
+		PRINTFORML NTR好感度(%CSTR:ARG:NTR角色名%)：{L_TMP,3}/999
+		L_CNT ++
+	ENDIF
+	WHILE 1
+		SIF L_CNT >= 2
+			BREAK
+		PRINTL
+		L_CNT ++
+	WEND
+
+ENDIF
+TRYCALL 初体验記錄(ARG)
+
+
+PRINTFORML ――――――――――――――――――――――――%CALLNAME:L_I%的特殊素质――――――――――――――――――――――――
+
+
+SIF TALENT:L_I:生还者 == 1
+	PRINTFORML 机密Lv1:【生还者】		曾经暴露在「外敌」威胁中，从都市外侧生还。
+SIF TALENT:L_I:实验体 == 1
+	PRINTFORML 机密Lv2:【实验体】		被做了某种实验，是需要观察的对象。
+SIF TALENT:L_I:高贵之血 == 1
+	PRINTFORML 机密Lv1:【高贵之血】		生来具有领主・王族之类的高贵之血，在现代非常珍貴。
+SIF TALENT:L_I:外来者 == 1
+	PRINTFORML 机密Lv1:【外来者】		并非来自此处，运气不好的人们。
+SIF TALENT:L_I:旧世代人 == 1
+	PRINTFORML 机密Lv2:【旧世代人】		在被「外敌」灭亡前就存活，对旧文明的事知之甚详。
+SIF TALENT:L_I:原性奴隶 == 1
+	PRINTFORML 机密Lv1:【原性奴隶】		以前被当成性奴隶，至少在这里可以受到珍惜。
+SIF TALENT:L_I:人权损坏 == 1
+	PRINTFORML 机密Lv2:【人权损坏】		人权曾受到严重损害，要是没有你的保护就会受到比家畜还不如的待遇。
+SIF TALENT:L_I:突变 == 1
+	PRINTFORML 机密Lv3:【突变】			完成有益突变的个体，但还不算是非人类。
+SIF TALENT:L_I:返祖 == 1
+	PRINTFORML 机密Lv3:【返祖】			被发现有以前世代的特异性，容貌也有些许相似。
+SIF TALENT:L_I:记忆处理完成 == 1
+	PRINTFORML 机密Lv2:【记忆处理完成】	什么都想不起来。
+SIF TALENT:L_I:名门 == 1
+	PRINTFORML 机密Lv0:【名门】			代代侍奉「玩家」的家族，也是居民们憧憬的对象。
+SIF TALENT:L_I:圣女的子宫 == 1
+	PRINTFORML 机密Lv4:【圣女的子宫】	拥有不论接受怎么样的精子，都能孕育出优秀子嗣的子宫。
+SIF TALENT:L_I:倾城倾国 == 1
+	PRINTFORML 机密Lv1:【倾城倾国】		其容貌足以被男性投以性、女性投以嫉妒的眼神。
+SIF TALENT:L_T:贵妇人 == 1
+    PRINTFORML 机密Lv1:【贵妇人】       被无数男性抱以幻想，渴望着获得她的身心
+SIF TALENT:L_T:白百合姬 == 1
+    PRINTFORML 机密Lv1:【白百合姬】     深深地爱着同性之人，而对异性毫不关心 
+SIF TALENT:L_I:「妹妹」 == 1
+	PRINTFORML 机密Lv5:【「妹妹」】		设定上记载是%CALLNAME:MASTER%妹妹的个体。
+SIF TALENT:L_I:「猎杀者」 == 1
+	PRINTFORML 机密Lv5:【「猎杀者」】	消灭无数「外敌」，被「ＣＩＴＹ」贈与的称号。
+SIF TALENT:L_I:「圣母」 == 1
+	PRINTFORML 机密Lv5:【「圣母」】		生下许多子嗣对都市做出贡献，被「ＣＩＴＹ」贈与的称号。
+SIF CFLAG:L_T: 居民_种族 == 99
+    PRINTFORML 重要机密：【尼亚】        在解析「外敌」的一部分信息后，由人工培育，创造出来的继承了「外敌」一部分血统的种族。
+PRINTFORML ―――――――――――――――――――――――――――――――――――――――――――――――――――――――――
+
+;=================================================
+;   sub INFO_INTRODUCTION
+;=================================================
+;   顯示:STATUS画面(详细情报)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_PERSONAL(ARG)
+#DIM L_I
+#DIM L_TMP
+#DIMS L_KEY
+#DIM I_LOOP
+
+I_LOOP = 1
+L_TMP = NO:ARG
+L_I = ARG:0
+
+
+DRAWLINE
+PRINTFORML ■------------------------------------ 详细情报 ------------------------------------■
+
+PRINTFORML ◇----------------居民情报----------------◇
+PRINTFORM 【现金:{CFLAG:L_I:居民_现金}】【收入:{CFLAG:L_I:居民_收入}】【开销:{CFLAG:L_I:居民_开销}】
+SIF Talent:L_I:偶像 != 0
+	PRINTFORM 【粉丝数:{CFLAG:L_I:粉丝数}】
+PRINTFORML
+PRINTFORML 【人气:{CFLAG:L_I:居民_人气}】【道德:{CFLAG:L_I:居民_道德}】【罪孽:{CFLAG:L_I:居民_罪孽}】【品格:{CFLAG:L_I:居民_品格}】
+PRINTFORML 【肉体伤害:{CFLAG:L_I:居民_肉体伤害}】【精神伤害:{CFLAG:L_I:居民_精神伤害}】
+
+
+IF TALENT:L_I:男性 == 1 || TALENT:L_I:双性
+PRINTFORM 【阴茎尺寸:
+	IF CFLAG:L_I:阴茎尺寸 == 3
+			PRINTFORM 巨根
+	ELSEIF CFLAG:L_I:阴茎尺寸 == 2
+			PRINTFORM 短小包茎
+	ELSEIF CFLAG:L_I:阴茎尺寸 == 1
+			PRINTFORM 包茎
+	ELSE
+			PRINTFORM 标准
+	ENDIF
+PRINTFORML 】
+ENDIF
+
+PRINTFORML ◇----------------精神情报----------------◇
+PRINTFORM 【忠诚值:{CFLAG:L_I:忠诚值}】
+PRINTFORM 【爱情值:{CFLAG:L_I:爱情值}】
+PRINTFORML 【淫乱值:{CFLAG:L_I:淫乱值}】
+PRINTFORM
+
+
+PRINTFORML ■------------------------------------ 烦恼一覧 ------------------------------------■
+PRINTFORML ◇----------------大的烦恼----------------◇
+REPEAT 5
+	IF CFlag:L_I:(4000+I_LOOP) != 0
+		IF CFlag:L_I:(4100+I_LOOP) >= 100
+				IF CFlag:L_I:(4000+I_LOOP) <= 199
+					PRINTFORM 【金钱问题】
+				ELSEIF CFlag:L_I:(4000+I_LOOP) <= 299
+					PRINTFORM 【恋爱问题】
+				ELSEIF CFlag:L_I:(4000+I_LOOP) <= 399
+					PRINTFORM 【家庭问题】
+				ELSEIF CFlag:L_I:(4000+I_LOOP) <= 499
+					PRINTFORM 【生活问题】
+				ELSEIF CFlag:L_I:(4000+I_LOOP) <= 599
+					PRINTFORM 【犯罪问题】
+				ELSEIF CFlag:L_I:(4000+I_LOOP) <= 699
+					PRINTFORM 【性事问题】
+				ENDIF
+			ELSE
+			PRINTFORM ？？？(未判明)【解析:{CFlag:L_I:(4100+I_LOOP)}/100】
+		ENDIF
+		PRINTFORM 难度:{CFlag:L_I:(4300+I_LOOP)}　
+		PRINTFORML 达成率:({CFlag:L_I:(4200+I_LOOP)}/100)
+	ENDIF
+	I_LOOP += 1
+REND
+PRINTFORML ◇----------------小的烦恼----------------◇
+I_LOOP = 1
+REPEAT 5
+	IF CFlag:L_I:(4010+I_LOOP) != 0
+		IF CFlag:L_I:(4110+I_LOOP) >= 100
+				IF CFlag:L_I:(4010+I_LOOP) <= 199
+					PRINTFORM 【金钱问题】
+				ELSEIF CFlag:L_I:(4010+I_LOOP) <= 299
+					PRINTFORM 【恋爱问题】
+				ELSEIF CFlag:L_I:(4010+I_LOOP) <= 399
+					PRINTFORM 【家庭问题】
+				ELSEIF CFlag:L_I:(4010+I_LOOP) <= 499
+					PRINTFORM 【生活问题】
+				ELSEIF CFlag:L_I:(4010+I_LOOP) <= 599
+					PRINTFORM 【犯罪问题】
+				ELSEIF CFlag:L_I:(4010+I_LOOP) <= 699
+					PRINTFORM 【性事问题】
+				ENDIF
+			ELSE
+			PRINTFORM ？？？(未判明)【解析:{CFlag:L_I:(4110+I_LOOP)}/100】
+		ENDIF
+		PRINTFORM 难度:{CFlag:L_I:(4310+I_LOOP)}　
+		PRINTFORML 达成率:({CFlag:L_I:(4210+I_LOOP)}/100)
+	ENDIF
+	I_LOOP += 1
+REND
+PRINTFORML ■------------------------------------ 身体情报 ------------------------------------■
+SIF TALENT:L_I:男性 == 0 || MASTER != L_I
+	CALL C_PICTURE_S(ARG:0)
+
+SIF !LINEISEMPTY()
+	PRINTL
+
+
+;=================================================
+;   顯示:STATUS画面(隠し性情报)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_SEX(ARG)
+#DIM L_I
+#DIM P_S
+#DIMS LSTR
+L_I = ARG
+P_S = 0
+IF MASTER == L_I
+PRINTFORML
+PRINTFORML 【男体等級:{CFlag:L_I:男体等級}】({CFlag:L_I:男体经验值}/{CFlag:L_I:男体等級*2})
+PRINTFORML 【精子等級:{CFlag:L_I:精子等級}】({CFlag:L_I:精子经验值}/{((CFlag:L_I:精子等級)*5)+CFlag:L_I:精子等級})
+PRINTFORML
+ELSEIF TALENT:L_I:男性 == 0 || MASTER != L_I
+	CALL C_PICTURE_S_S(ARG)
+
+
+	PRINTFORML ■----------------%CALLNAME:L_I%具备的潜意识素质----------------■
+	IF TALENT:L_I:男性 == 0
+		IF CFlag:L_I:女人味 >= 80
+			IF !RAND:5
+				PRINTFORML 「……%UNICODE(0x2661)%」
+			ELSEIF !RAND:4
+				PRINTFORML 「%CSTR:L_I:二人称%的孩子，会是相当优秀的孩子吧」」
+			ELSEIF !RAND:3
+				PRINTFORML 「对孩子很有兴趣，%CSTR:L_I:二人称%呢？」
+			ELSEIF !RAND:2
+				PRINTFORML (%CSTR:L_I:一人称%…不知不觉间把身体靠过去……)
+			ELSE
+				PRINTFORML 「靠近点没关系吧？这样比较容易听清楚」
+			ENDIF
+		ELSEIF CFlag:L_I:女人味 >= 60
+			IF !RAND:5
+				PRINTFORML 「今天也有很多话想说，可以听听吗？」
+			ELSEIF !RAND:4
+				PRINTFORML 「%CSTR:L_I:二人称%对女性有兴趣吗？」
+			ELSEIF !RAND:3
+				PRINTFORML 「……♪」
+			ELSEIF !RAND:2
+				PRINTFORML 「怎么了？%UNICODE(0x2661)%」
+			ELSE
+				PRINTFORML 「身体好热…但是…感觉不错呢…」
+			ENDIF
+		ELSEIF CFlag:L_I:女人味 >= 40
+			IF !RAND:5
+				PRINTFORML 「%CSTR:L_I:二人称%说的话一直都很有趣呢」
+			ELSEIF !RAND:4
+				PRINTFORML 「…嗯」
+			ELSEIF !RAND:3
+				PRINTFORML 「…一直以来多谢了」
+			ELSEIF !RAND:2
+				PRINTFORML 「身体感觉好热…」
+			ELSE
+				PRINTFORML 「%CSTR:L_I:二人称%的话要摸也没关系喔」
+			ENDIF
+		ELSEIF CFlag:L_I:女人味 >= 20
+			IF !RAND:5
+				PRINTFORML 「有%CSTR:L_I:二人称%听这些话真是太好了」
+			ELSEIF !RAND:4
+				PRINTFORML 「还有更多话想说，可以听听看吗？」
+			ELSEIF !RAND:3
+				PRINTFORML 「仔细一看，%CSTR:L_I:二人称%的感觉还不错呢」
+			ELSEIF !RAND:2
+				PRINTFORML 「可以靠近点吗？」
+			ELSE
+				PRINTFORML 「有点热呢，怎么了吗…？」
+			ENDIF
+		ELSE
+			IF !RAND:5
+				PRINTFORML 「%CSTR:L_I:一人称%的脸上有什么吗？」
+			ELSEIF !RAND:4
+				PRINTFORML 「……？」
+			ELSEIF !RAND:3
+				PRINTFORML 「………怎么了？」
+			ELSEIF !RAND:2
+				PRINTFORML 「没什么特別的问题」
+			ELSE
+				PRINTFORML 「…？怎么了？」
+			ENDIF
+		ENDIF
+
+
+
+
+
+
+
+		IF CFlag:L_I:荷尔蒙 >= 1
+		PRINTFORM ・【荷尔蒙	】
+			IF CFlag:L_I:荷尔蒙 >= 90
+				PRINTFORML 释放着对男性有巨大影响力，没有%CALLNAME:MASTER%的保护就不能好好生活的强烈荷尔蒙%UNICODE(0x2661)%×10
+			ELSEIF CFlag:L_I:荷尔蒙 >= 80
+				PRINTFORML 释放着会压倒男性们的理性，试图伏击使其受孕的荷尔蒙%UNICODE(0x2661)%×9
+			ELSEIF CFlag:L_I:荷尔蒙 >= 70
+				PRINTFORML 释放着男性们只要闻到她的气味就会忍不住勃起的荷尔蒙%UNICODE(0x2661)%×8
+			ELSEIF CFlag:L_I:荷尔蒙 >= 60
+				PRINTFORML 释放着男性们只要看一眼就会想使其受孕的荷尔蒙%UNICODE(0x2661)%×7
+			ELSEIF CFlag:L_I:荷尔蒙 >= 50
+				PRINTFORML 释放着男性们会受到魅惑想方设法发生关系的荷尔蒙%UNICODE(0x2661)%×6
+			ELSEIF CFlag:L_I:荷尔蒙 >= 40
+				PRINTFORML 释放着男性们无可避免会投以性方面视线的荷尔蒙。%UNICODE(0x2661)%×5
+			ELSEIF CFlag:L_I:荷尔蒙 >= 30
+				PRINTFORML 释放着能获得男性好感的荷尔蒙%UNICODE(0x2661)%×4
+			ELSEIF CFlag:L_I:荷尔蒙 >= 20
+				PRINTFORML 释放着令男性认为充满女性魅力的荷尔蒙%UNICODE(0x2661)%×3
+			ELSEIF CFlag:L_I:荷尔蒙 >= 10
+				PRINTFORML 释放着会引起男性若干兴奋的荷尔蒙%UNICODE(0x2661)%×2
+			ELSE
+				PRINTFORML 释放着会让男性加以关心的荷尔蒙%UNICODE(0x2661)%
+			ENDIF
+		ENDIF
+
+		PRINTFORM ・【雌性本能　】
+		IF CFlag:L_I:雌性本能 >= 90
+			PRINTFORML 具备只要没有怀孕就经常情緒不安定的异常生殖本能%UNICODE(0x2661)%×10
+		ELSEIF CFlag:L_I:雌性本能 >= 80
+			PRINTFORML 具备无意识间诱惑优秀雄性进行生殖行为的生殖本能%UNICODE(0x2661)%×9
+		ELSEIF CFlag:L_I:雌性本能 >= 70
+			PRINTFORML 具备会对避孕感到反感的生殖本能%UNICODE(0x2661)%×8
+		ELSEIF CFlag:L_I:雌性本能 >= 60
+			PRINTFORML 具备想怀上优秀雄性子嗣的生殖本能%UNICODE(0x2661)%×7
+		ELSEIF CFlag:L_I:雌性本能 >= 50
+			PRINTFORML 具备以生殖本能而言有些异常的欲求度%UNICODE(0x2661)%×6
+		ELSEIF CFlag:L_I:雌性本能 >= 40
+			PRINTFORML 具备接近雄性子宫就会发疼的生殖本能%UNICODE(0x2661)%×5
+		ELSEIF CFlag:L_I:雌性本能 >= 30
+			PRINTFORML 对生殖有相当积极的想法%UNICODE(0x2661)%×4
+		ELSEIF CFlag:L_I:雌性本能 >= 20
+			PRINTFORML 具备以雌性而言较强的生殖本能%UNICODE(0x2661)%×3
+		ELSEIF CFlag:L_I:雌性本能 >= 10
+			PRINTFORML 具备以雌性而言良好的生殖本能%UNICODE(0x2661)%×2
+		ELSE
+			PRINTFORML 具备与一般雌性相若的生殖本能%UNICODE(0x2661)%
+		ENDIF
+
+		PRINTFORM ・【对性的兴趣】
+		IF CFlag:L_I:对性的兴趣 >= 90
+			PRINTFORML 主张对性体验的追求是理所当然的%UNICODE(0x2661)%×10
+		ELSEIF CFlag:L_I:对性的兴趣 >= 80
+			PRINTFORML 对于性了若指掌，想要更进一步实际体验%UNICODE(0x2661)%×9
+		ELSEIF CFlag:L_I:对性的兴趣 >= 70
+			PRINTFORML 对于性非常有兴趣，随时都在性妄想%UNICODE(0x2661)%×8
+		ELSEIF CFlag:L_I:对性的兴趣 >= 60
+			PRINTFORML 对于性有强烈兴趣，每晚都在想像并因此兴奋%UNICODE(0x2661)%×7
+		ELSEIF CFlag:L_I:对性的兴趣 >= 50
+			PRINTFORML 只要有少许关于性的描写，就会不自觉夸大并妄想%UNICODE(0x2661)%×6
+		ELSEIF CFlag:L_I:对性的兴趣 >= 40
+			PRINTFORML 做为性探求的一环，拥有几种性道具%UNICODE(0x2661)%×5
+		ELSEIF CFlag:L_I:对性的兴趣 >= 30
+			PRINTFORML 不抗拒各种类型的性知识%UNICODE(0x2661)%×4
+		ELSEIF CFlag:L_I:对性的兴趣 >= 20
+			PRINTFORML 会私下收集关于性的情报%UNICODE(0x2661)%×3
+		ELSEIF CFlag:L_I:对性的兴趣 >= 10
+			PRINTFORML 对于性有相当兴趣，多少会调查相关资料%UNICODE(0x2661)%×2
+		ELSE
+			PRINTFORML 对于性有一般程度的关心%UNICODE(0x2661)%
+		ENDIF
+
+		PRINTFORM ・【对雄性关注】
+		IF CFlag:L_I:对雄性关注 >= 90
+			PRINTFORML 服侍意中人时，会入迷般献媚的雌性中的雌性%UNICODE(0x2661)%×10
+		ELSEIF CFlag:L_I:对雄性关注 >= 80
+			PRINTFORML 会做为雌性被各类型男性吸引接近的关注程度%UNICODE(0x2661)%×9
+		ELSEIF CFlag:L_I:对雄性关注 >= 70
+			PRINTFORML 会对异性撒娇，对同性采取严厉态度的关注程度%UNICODE(0x2661)%×8
+		ELSEIF CFlag:L_I:对雄性关注 >= 60
+			PRINTFORML 看见生殖器会引起性兴奋的关注程度%UNICODE(0x2661)%×7
+		ELSEIF CFlag:L_I:对雄性关注 >= 50
+			PRINTFORML 想看见男性裸体的关注程度%UNICODE(0x2661)%×6
+		ELSEIF CFlag:L_I:对雄性关注 >= 40
+			PRINTFORML 想知道各类型男性生殖器的关注程度%UNICODE(0x2661)%×5
+		ELSEIF CFlag:L_I:对雄性关注 >= 30
+			PRINTFORML 对异性没有任何偏见%UNICODE(0x2661)%×4
+		ELSEIF CFlag:L_I:对雄性关注 >= 20
+			PRINTFORML 会自然探索各类型男性的关注程度%UNICODE(0x2661)%×3
+		ELSEIF CFlag:L_I:对雄性关注 >= 10
+			PRINTFORML 能毫无抗拒与男性对话的关注程度%UNICODE(0x2661)%×2
+		ELSE
+			PRINTFORML 似乎对男性不太关注%UNICODE(0x2661)%
+		ENDIF
+
+		PRINTFORM ・【性交愿望　】
+		IF CFlag:L_I:性交愿望 >= 90
+			PRINTFORML 对性行为有着与淫魔相仿的欲求%UNICODE(0x2661)%×10
+		ELSEIF CFlag:L_I:性交愿望 >= 80
+			PRINTFORML 可以的话想要一直交尾般地渴望性行为%UNICODE(0x2661)%×9
+		ELSEIF CFlag:L_I:性交愿望 >= 70
+			PRINTFORML 对性行为有不论高潮几次都不满足的欲求%UNICODE(0x2661)%×8
+		ELSEIF CFlag:L_I:性交愿望 >= 60
+			PRINTFORML 渴望像野兽一般的性行为%UNICODE(0x2661)%×7
+		ELSEIF CFlag:L_I:性交愿望 >= 50
+			PRINTFORML 阴道内随时都在翻搅般地渴望性行为%UNICODE(0x2661)%×6
+		ELSEIF CFlag:L_I:性交愿望 >= 40
+			PRINTFORML 想要尽可能进行激烈性行为般地渴望性行为%UNICODE(0x2661)%×5
+		ELSEIF CFlag:L_I:性交愿望 >= 30
+			PRINTFORML 具备比一般女性还强的性交愿望%UNICODE(0x2661)%×4
+		ELSEIF CFlag:L_I:性交愿望 >= 20
+			PRINTFORML 想要能满足彼此的性行为%UNICODE(0x2661)%×3
+		ELSEIF CFlag:L_I:性交愿望 >= 10
+			PRINTFORML 具备心情好就能答应的性交愿望%UNICODE(0x2661)%×2
+		ELSE
+			PRINTFORML 似乎并不特別喜欢性行为%UNICODE(0x2661)%
+		ENDIF
+
+		PRINTFORM ・【怀孕愿望　】
+		IF CFlag:L_I:怀孕愿望 >= 90
+			PRINTFORML 会让人觉得子宫和脑接在一起般地想要怀孕%UNICODE(0x2661)%×10
+		ELSEIF CFlag:L_I:怀孕愿望 >= 80
+			PRINTFORML 只要和喜欢的人交尾就会立刻排卵般地想要怀孕%UNICODE(0x2661)%×9
+		ELSEIF CFlag:L_I:怀孕愿望 >= 70
+			PRINTFORML 只要是和喜欢的人不论几个孩子都想生%UNICODE(0x2661)%×8
+		ELSEIF CFlag:L_I:怀孕愿望 >= 60
+			PRINTFORML 子宫像是想要受孕而持续疼痛般地想要怀孕%UNICODE(0x2661)%×7
+		ELSEIF CFlag:L_I:怀孕愿望 >= 50
+			PRINTFORML 为了能怀上孩子而积极做出容易怀孕的姿勢%UNICODE(0x2661)%×6
+		ELSEIF CFlag:L_I:怀孕愿望 >= 40
+			PRINTFORML 一进行性行为就觉得快要受孕般地想要怀孕%UNICODE(0x2661)%×5
+		ELSEIF CFlag:L_I:怀孕愿望 >= 30
+			PRINTFORML 不会对内射而怀孕感到不安%UNICODE(0x2661)%×4
+		ELSEIF CFlag:L_I:怀孕愿望 >= 20
+			PRINTFORML 想要为喜欢的人生下孩子%UNICODE(0x2661)%×3
+		ELSEIF CFlag:L_I:怀孕愿望 >= 10
+			PRINTFORML 进展到相当階段才能容许怀孕%UNICODE(0x2661)%×2
+		ELSE
+			PRINTFORML 并不是很想怀孕%UNICODE(0x2661)%
+		ENDIF
+	ENDIF
+ENDIF
+DRAWLINE
+
+
+
+PRINTFORML
+PRINTFORML
+
+;=================================================
+;   顯示:STATUS画面(RPG情报)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_RPG(L_I)
+#DIM L_I
+PRINTFORML ■------------------------------------ 戰鬥详细 ------------------------------------■
+PRINTFORML ◇----------------身体情报----------------◇
+PRINTFORML 【HP:{CFlag:L_I:居民_现在体力, 3 ,RIGHT}/{CFlag:L_I:居民_最大体力, 3 ,RIGHT}】【SP:{CFlag:L_I:居民_现在气力, 3 ,RIGHT}/{CFlag:L_I:居民_最大气力, 3 ,RIGHT}】
+PRINTFORML 【GUTS:{CFlag:L_I:居民_GUTS, 3 ,LEFT}】【BRAVE:{CFlag:L_I:居民_BRAVE, 3 ,LEFT}】【SAN:{CFlag:L_I:居民_SAN, 3 ,LEFT}】
+PRINTFORML 【经验值:{CFlag:L_I:居民_经验值}】
+PRINTFORML 【ATK:{CFlag:L_I:居民_ATK, 3 ,LEFT}】【DEF:{CFlag:L_I:居民_DEF, 3 ,LEFT}】
+PRINTFORML 【HIT:{CFlag:L_I:居民_HIT, 3 ,LEFT}】【SPD:{CFlag:L_I:居民_SPD, 3 ,LEFT}】【LUK:{CFlag:L_I:居民_LUK, 3 ,LEFT}】
+PRINTFORML 【BRE:{CFlag:L_I:居民_现在BRE}/{CFlag:L_I:居民_最大BRE}】
+CALL INFO_RPG_SKILL(L_I)
+CALL INFO_RPG_WEAPON(L_I)
+PRINTFORML
+
+
+@INFO_RPG_SKILL(L_I)
+#DIM L_I
+PRINTFORML ◇----------------技能情报----------------◇
+PRINTFORML 【预判　　:{CFLAG:L_I:居民_技能_预判, 3 ,LEFT}】【机智　 :{CFLAG:L_I:居民_技能_机智, 3 ,LEFT}】【聆听　:{CFLAG:L_I:居民_技能_聆听, 3 ,LEFT}】【医疗　　:{CFLAG:L_I:居民_技能_医疗, 3 ,LEFT}】
+PRINTFORML 【机械修理:{CFLAG:L_I:居民_技能_机械修理, 3 ,LEFT}】【电脑 :{CFLAG:L_I:居民_技能_电脑, 3 ,LEFT}】【开锁　:{CFLAG:L_I:居民_技能_开锁, 3 ,LEFT}】【隐匿　:{CFLAG:L_I:居民_技能_隐匿, 3 ,LEFT}】
+PRINTFORML 【解体　　:{CFLAG:L_I:居民_技能_解体, 3 ,LEFT}】【解读　　:{CFLAG:L_I:居民_技能_解读, 3 ,LEFT}】
+
+@INFO_RPG_WEAPON(L_I)
+#DIM L_I
+PRINTFORML ◇----------------武裝情报----------------◇
+PRINTFORML □-----主要武裝-----□□----- 次要武裝 -----□
+PRINTFORML 【%CSTR:L_I:4000, 19 ,LEFT%】【%CSTR:L_I:4010, 19 ,LEFT%】
+PRINTFORML 【类型:%INFO_STR_HEISOU(CFlag:L_I:居民_M武裝)%】　　　　【类型:%INFO_STR_HEISOU(CFlag:L_I:居民_S武裝)%】
+PRINTFORML 【练度:{CFlag:L_I:居民_M武裝练度, 3 ,LEFT}】　　　　　 【练度:{CFlag:L_I:居民_S武裝练度, 3 ,LEFT}】
+PRINTFORML 【伤害:%INFO_STR_MAIN_WEAPON_DAMAGE(L_I)%】　【伤害:%INFO_STR_SUB_WEAPON_DAMAGE(L_I)%】
+
+
+
+
+;=================================================
+;   sub INFO_INTRODUCTION
+;=================================================
+;   顯示:STATUS画面(介绍)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_INTRODUCTION(ARG)
+#DIM L_I
+#DIM L_LOOP
+
+L_I = ARG
+L_LOOP = 0
+DRAWLINE
+PRINTFORML ■------------------------------------初步简介------------------------------------■
+DRAWLINE
+REPEAT 20
+	SIF L_LOOP >= 2
+		SETCOLOR 50,250,150
+	SIF L_LOOP >= 5
+		SETCOLOR 250,250,50
+	SIF L_LOOP >= 9
+		SETCOLOR 250,50,50
+	SIF L_LOOP >= 13
+		SETCOLOR 250,0,0
+	SIF CSTR:L_I:(70+L_LOOP) != ""
+		PRINTFORML %CSTR:L_I:(70+L_LOOP)%
+	L_LOOP += 1
+REND
+IF L_I == MASTER
+	SETCOLOR 250,50,50
+	PRINTFORML 【机密Lv8:所属】%CALLNAME:MASTER%是负责都市发展・繁荣的「玩家」之一。
+	PRINTFORML 【机密Lv9:运营】在上述的任期中，可以在权限许可范围内利用都市的居民。
+	SETCOLOR 250,0,0
+	PRINTFORML 【重要机密:权限】%CALLNAME:MASTER%被许可的权限有――――――――――－－－－□○种。
+	PRINTFORML 【重要机密:家族】４０４　Ｅｒｒｏｒ
+	PRINTFORML 【重要机密:　　】４０３　Ｅｒｒｏｒ
+	PRINTFORML 【重要机密:　　】４０３　Ｅｒｒｏｒ
+	PRINTFORML 【重要机密:　　】４０３　Ｅｒｒｏｒ
+	PRINTFORML 【重要机密:人权】%CALLNAME:MASTER%被賦予第一級人权，人权受到　　　　　　　　　　保护。
+	PRINTFORML 【重要机密:　　】４０３　Ｅｒｒｏｒ
+	PRINTFORML 【　　机密:　　】%CALLNAME:MASTER%未取得任何许可。
+	PRINTFORML 【　　机密:　　】%CALLNAME:MASTER%必須从　　　　　的　　之中　　不可。
+ENDIF
+RESETCOLOR
+DRAWLINE
+
+
+
+
+
+;=================================================
+;   sub INFO_SIMPLE_STATUS_EXP
+;=================================================
+;   簡易顯示:STATUS(经验)
+;-------------------------------------------------
+; Input:
+;  ARG:0				对象角色
+;-------------------------------------------------
+@INFO_SIMPLE_STATUS_EXP(ARG)
+#DIM L_HIT
+#DIM L_CNT
+
+L_HIT=0
+L_CNT=0
+VARSET LOCAL
+
+FOR LOCAL,0,VARSIZE("EXP")
+
+	LOCALS = %EXPNAME:LOCAL%
+	SIF STRLENS(LOCALS) <= 0
+		CONTINUE
+	LOCAL:1 = EXP:ARG:LOCAL
+	SIF !LOCAL:1
+		CONTINUE
+
+	PRINTFORM %LOCALS , 16%
+	PRINTFORM :LV{GETEXPLV(LOCAL:1,9)}
+	PRINTFORM (%TOSTR(LOCAL:1) , 4%次)
+	PRINT
+	L_HIT = 1
+
+	L_CNT += 1
+	IF L_CNT > 2
+		PRINTL
+		L_CNT = 0
+		L_HIT = 0
+	ENDIF
+
+NEXT
+
+SIF L_HIT
+	PRINTL
+
+
+
+;-------------------------------------------------
+;ラベル使用角色体能參照関数
+;-------------------------------------------------
+;ラベル名から指定角色の体能值を參照する
+;ラベル名が不正な場合は0
+@INFO_STATUS_GET_BY_LABEL(C_ID, LABEL_NAME)
+#FUNCTION
+#LOCALSIZE 1
+#LOCALSSIZE 1
+#DIM  C_ID           ;
+#DIMS LABEL_NAME     ;
+#DIMS LABEL_VAR_NAME ;
+#DIM  LABEL_VAR_ID   ;
+IF CHARA_SORT_FIND_LABEL(LABEL_NAME, LABEL_VAR_NAME, LABEL_VAR_ID)
+	RETURNF C_GET_CVAR_VALUE(C_ID, LABEL_VAR_NAME, LABEL_VAR_ID)
+ELSE
+	DEBUGPRINTFORML INFO_STATUS_GET_BY_LABEL，不正確的LABEL_NAME %LABEL_NAME%
+	RETURNF 0
+ENDIF
+
+
+;-------------------------------------------------
+;个人の烦恼一覧関数
+;-------------------------------------------------
+;仕様書いてないからよくわかんねーけど
+;とりあえず大小各1～9までが烦恼欄位と解釈したよ？
+@INFO_STATUS_NAYAMI_LIST(C_ID, OP)
+#DIM  C_ID   ;登錄編號
+#DIMS OP     ;實行オプション
+#DIM  I_LOOP ;ループ用
+DRAWLINE
+PRINTFORML ◇----------------大的烦恼----------------◇
+IF STRCOUNT(OP, "「按钮」")
+	FOR I_LOOP, 1, 9
+		SIF CFLAG:C_ID:(4000 + I_LOOP) <= 0
+			CONTINUE
+		IF CFLAG:C_ID:(4200 + I_LOOP) >= 100
+			PRINTFORM 解决　
+		ELSE
+			PRINTFORM [{I_LOOP, 2}]
+		ENDIF
+		CALL INFO_STATUS_NAYAMI(C_ID, I_LOOP)
+	NEXT
+ELSE
+	FOR I_LOOP, 1, 9
+		SIF CFLAG:C_ID:(4000 + I_LOOP) <= 0
+			CONTINUE
+		CALL INFO_STATUS_NAYAMI(C_ID, I_LOOP)
+	NEXT
+ENDIF
+PRINTFORML ◇----------------小的烦恼----------------◇
+IF STRCOUNT(OP, "「按钮」")
+	FOR I_LOOP, 11, 19
+		SIF CFLAG:C_ID:(4000 + I_LOOP) <= 0
+			CONTINUE
+		IF CFLAG:C_ID:(4200 + I_LOOP) >= 100
+			PRINTFORM 解决　
+		ELSE
+			PRINTFORM [{I_LOOP, 2}]
+		ENDIF
+		CALL INFO_STATUS_NAYAMI(C_ID, I_LOOP)
+	NEXT
+ELSE
+	FOR I_LOOP, 11, 19
+		SIF CFLAG:C_ID:(4000 + I_LOOP) <= 0
+			CONTINUE
+		CALL INFO_STATUS_NAYAMI(C_ID, I_LOOP)
+	NEXT
+ENDIF
+
+;-------------------------------------------------
+;烦恼情报顯示関数
+;-------------------------------------------------
+@INFO_STATUS_NAYAMI(C_ID, NAYAMI_ID)
+#DIM C_ID
+#DIM NAYAMI_ID
+IF CFLAG:C_ID:(4100 + NAYAMI_ID) >= 100
+	SELECTCASE CFLAG:C_ID:(4000 + NAYAMI_ID)
+	CASE IS <= 199
+		PRINTFORM 【金钱问题】
+	CASE IS <= 299
+		PRINTFORM 【恋爱问题】
+	CASE IS <= 399
+		PRINTFORM 【家庭问题】
+	CASE IS <= 499
+		PRINTFORM 【生活问题】
+	CASE IS <= 599
+		PRINTFORM 【犯罪问题】
+	CASE IS <= 699
+		PRINTFORM 【性事问题】
+	ENDSELECT
+ELSE
+	PRINTFORM ？？？(未判明)【解析:{CFLAG:C_ID:(4100 + NAYAMI_ID)}/100】
+ENDIF
+PRINTFORM 　难度：{CFLAG:C_ID:(4300 + NAYAMI_ID)}　
+PRINTFORM 达成率：({CFLAG:C_ID:(4200 + NAYAMI_ID)}/100)
+SIF NAYAMI_ID == CFLAG:C_ID:居民_解决烦恼选择
+	PRINTFORM 　现在解决中
+PRINTFORML

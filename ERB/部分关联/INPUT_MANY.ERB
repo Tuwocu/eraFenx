@@ -1,0 +1,112 @@
+;-------------------------------------------------
+;數量輸入用関數　@INPUT_MANY
+;ARGで最小值、ARG:1で最大值を指定
+;電卓風のコンソールから數值を輸入させる
+;
+;ARG・ARG:1　最低值あるいは最大值　順序は逆でもよい
+;ARGS　オプション。とりあえずいまは殘留記錄のみ
+;ARGS:1　例外の數值設定。範圍外でも通る數值を設定する
+;		 記述方法は0/20/30/-1といったように、文字列で"/"を区切り文字とする
+;-------------------------------------------------
+@INPUT_MANY(ARG, ARG:1, ARGS = "殘留記錄", ARGS:1)
+#LOCALSIZE 3
+#LOCALSSIZE 20
+#DIM LINE, 1
+;最初は0
+LOCAL = 0
+LOCAL:1 = 1
+VARSET LOCALS
+SPLIT ARGS:1, "/", LOCALS
+LINE = LINECOUNT
+$START
+REDRAW 0
+CLEARLINE LINECOUNT - LINE
+PRINTFORML 【{LOCAL}】　《【{ARG}】 - 【{ARG:1}】》
+PRINTBUTTON "[7]", "7"
+PRINT 　
+PRINTBUTTON "[8]", "8"
+PRINT 　
+PRINTBUTTON "[9]", "9"
+PRINT 　
+PRINTBUTTON "[AC]", "AC"
+PRINTL
+
+PRINTBUTTON "[4]", "4"
+PRINT 　
+PRINTBUTTON "[5]", "5"
+PRINT 　
+PRINTBUTTON "[6]", "6"
+PRINT 　
+PRINTBUTTON "[Max]", "MAX"
+PRINTL
+
+PRINTBUTTON "[1]", "1"
+PRINT 　
+PRINTBUTTON "[2]", "2"
+PRINT 　
+PRINTBUTTON "[3]", "3"
+PRINT 　
+PRINTBUTTON "[Min]", "MIN"
+PRINTL
+
+PRINTBUTTON "[0]", "0"
+PRINT 　
+IF LOCAL:1 == -1
+	PRINTBUTTON "[+]", "+"
+ELSE
+	PRINTBUTTON "[-]", "-"
+ENDIF
+PRINT 　
+PRINTBUTTON "[ENTER]", "ENTER"
+PRINTL
+PRINTFORML ※也可以直接用鍵盤輸入數值
+INPUTS
+SELECTCASE RESULTS
+	CASE "AC"
+		RESTART
+	CASE "+"
+		LOCAL *= -1
+		LOCAL:1 = 1
+	CASE "-"
+		LOCAL *= -1
+		LOCAL:1 = -1
+	CASE "MIN"
+		LOCAL = ARG
+	CASE "MAX"
+		LOCAL = ARG:1
+	CASE "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+		IF LOCAL == 0
+			LOCAL = ABS(LOCAL) + TOINT(TOHALF(RESULTS)) * LOCAL:1
+		ELSE
+			;位數を取る
+			LOCAL:2 = 1
+			WHILE LOCAL >= POWER(10, LOCAL:2)
+				LOCAL:2++
+				IF LOCAL:2 > 18
+					PRINTFORMW 位数过多！
+					GOTO START
+				ENDIF
+			WEND
+			LOCAL = LOCAL * 10 + TOINT(TOHALF(RESULTS))
+		ENDIF
+	CASEELSE
+		IF RESULTS != "ENTER"
+			FOR LOCAL:2, 0, STRLENS(RESULTS)
+				SIF GROUPMATCH(SUBSTRING(RESULTS, LOCAL:2, 1), "0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
+					CONTINUE
+				PRINTFORMW 输入异常。请重新输入
+				RESTART
+			NEXT
+			LOCAL = TOINT(RESULTS)
+		ENDIF
+		IF INRANGE(LOCAL, ARG, ARG:1) || MATCH(LOCALS, TOSTR(LOCAL))
+			SIF !STRCOUNT(ARGS, "残留记录")
+				CLEARLINE LINE - LINECOUNT
+			REDRAW 1
+			RETURNFORM LOCAL
+		ELSE
+			PRINTFORMW 数值在范围外。请重新输入
+			RESTART
+		ENDIF
+ENDSELECT
+GOTO START

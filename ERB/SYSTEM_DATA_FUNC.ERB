@@ -1,0 +1,254 @@
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+;
+;	Module		:SYSTEM_DATA_FUNC.ERB
+;	Facility	:系統檔案管理 - 関數置き場。
+;
+;	Licence		:ライセンスフリー。
+;
+;	Modification Data:
+;
+;	Edit	Date			Author					Reason
+;	001		20XX/XX/XX		----					新規作成
+;
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+
+;-------------------------------------------------
+; メモ：
+;   特に沒有
+;-------------------------------------------------
+
+;===============================================================================
+;  ◇記載関數一覧(記載順)
+;
+;		Module Name						Explanation
+;
+; *- xxxx
+;
+;	・ TITLE_SAVEGAME_FUNC				SYSTEM:存檔處理関數
+;	・ _MAKE_SAVEDATA					作成:存檔檔案
+;	・ TITLE_LOADGAME_FUNC				SYSTEM:讀檔處理関數
+;
+;===============================================================================
+
+;-------------------------------------------------------------------------------
+;   XXXX
+;-------------------------------------------------------------------------------
+
+;=================================================
+;   sub TITLE_SAVEGAME_FUNC
+;=================================================
+;   SYSTEM:存檔處理関數
+;-------------------------------------------------
+@TITLE_SAVEGAME_FUNC
+#DIM L_I
+#DIM L_MAX
+#DIM L_MIN
+#DIM L_IDX
+#DIMS LSTR
+
+LSTR = 　　　　　　　　　　　　　　　　　　　<img src='Logo_0' height = '2500' ypos = '200'>
+HTML_PRINT LSTR
+L_MIN = 0
+SAVENOS L_MAX
+
+;ライン顯示:新ページ
+CALL C_LINE
+
+PRINTL 【存档画面】
+PRINTL 请选择存档位置。
+PRINTL
+
+;- 顯示:存檔檔案
+FOR L_I, L_MIN, L_MAX
+	CHKDATA L_I
+	IF !RESULT
+		PRINTFORML [{L_I,3}] %RESULTS%
+	ELSE
+		PRINTFORML [{L_I,3}] ----
+	ENDIF
+NEXT
+PRINTL
+PRINTFORMLC [1001] 返回
+
+$INPUT_LOOP
+INPUT
+
+SELECTCASE RESULT
+	;- 返回
+	CASE 1001
+		RETURN
+
+	;- 範圍内
+	CASE L_MIN TO (L_MAX - 1)
+		;- 後続處理へ遷移
+
+	;- 範圍外
+	CASEELSE
+		CLEARLINE 1
+		REUSELASTLINE 无效数值
+		GOTO INPUT_LOOP
+ENDSELECT
+
+L_IDX = RESULT
+
+CHKDATA L_IDX
+IF !RESULT
+	PRINTL 存档已存在，要覆盖吗？
+	;- 輸入提示:２托
+	CALL INPUT_YN
+	SIF RESULT == 1
+		RESTART
+ENDIF
+
+;- SYSTEM:存檔實行
+CALL SYS_SAVE_EXE(L_IDX)
+
+;=================================================
+;   sub _MAKE_SAVEDATA
+;=================================================
+;   作成:存檔檔案
+;-------------------------------------------------
+@_MAKE_SAVEDATA
+#DIMS L_WORK
+
+;- PUTFORMで"SAVEDATA_TEXT"に文字列を裝配
+
+PUTFORM {DAY,3}日目
+PUTFORM (%INFO_TIME()%)
+
+PUTFORM 主人:%CALLNAME:MASTER, 20, LEFT%
+SIF GETNUM(BASE, "LV") != -1
+	PUTFORM LV:{BASE:MASTER:LV, 2}
+
+L_WORK = {GAMEBASE_VERSION/1000,1}.{GAMEBASE_VERSION % 1000, 3}
+L_WORK = %REPLACE(L_WORK, " ", "0")%
+SIF FLAG:周回游玩次数
+	L_WORK += @" ☆{1+FLAG:周回游玩次數,2}周目"
+PUTFORM Ver%L_WORK%
+
+
+
+;-----------------------------
+;- 存檔檔案尺寸削減處理
+;-----------------------------
+
+VARSET A
+VARSET B
+VARSET C
+VARSET D
+VARSET E
+VARSET F
+VARSET G
+VARSET H
+VARSET I
+VARSET J
+VARSET K
+VARSET L
+VARSET M
+VARSET N
+VARSET O
+VARSET P
+VARSET Q
+VARSET R
+VARSET S
+VARSET T
+VARSET U
+VARSET V
+VARSET W
+VARSET X
+VARSET Y
+VARSET Z
+
+REPEAT CHARANUM
+	VARSET SOURCE:COUNT:0
+REND
+
+;-----------------------------
+;- 行動中以外の場合は、下記も初期化
+;  (※行動中に存檔出来るかどうかは検討中)
+;-----------------------------
+
+;- 取り合えず實行。行動中に存檔可能にする場合は、下記はIFで控制
+REPEAT CHARANUM
+	VARSET GOTJUEL:COUNT:0
+	VARSET EX:COUNT:0
+	VARSET PALAM:COUNT:0
+REND
+
+
+
+;=================================================
+;   sub TITLE_LOADGAME_FUNC
+;=================================================
+;   SYSTEM:讀檔處理関數
+;-------------------------------------------------
+@TITLE_LOADGAME_FUNC
+#DIM L_I
+#DIM L_MAX
+#DIM L_MIN
+#DIM L_IDX
+
+
+L_MIN = 0
+SAVENOS L_MAX
+;ライン顯示:新ページ
+CALL C_LINE
+PRINTL 【读档画面】
+PRINTL 请选择要读取的记录。
+PRINTL
+
+;- 顯示:存檔檔案
+FOR L_I, L_MIN, L_MAX
+	CHKDATA L_I
+	IF !RESULT
+		PRINTFORML [{L_I,3}] %RESULTS%
+	ELSE
+		PRINTFORML [{L_I,3}] ----
+	ENDIF
+NEXT
+
+IF 1
+	L_I = 98
+	CHKDATA L_I
+	IF !RESULT
+		PRINTFORML [{L_I,3}] %RESULTS%
+	ELSE
+		PRINTFORML [{L_I,3}] ----
+	ENDIF
+ENDIF
+
+IF 1
+	L_I = 99
+	CHKDATA L_I
+	IF !RESULT
+		PRINTFORML [{L_I,3}] %RESULTS%
+	ELSE
+		PRINTFORML [{L_I,3}] ----
+	ENDIF
+ENDIF
+
+PRINTL
+PRINTFORMLC [1001] 返回
+
+$INPUT_LOOP
+INPUT
+
+SELECTCASE RESULT
+	;- 返回
+	CASE 1001
+		RETURN
+
+	;- オート存檔
+	CASE 98, 99
+		;- 後続處理へ遷移
+
+	;- 範圍内
+	CASE L_MIN TO (L_MAX - 1)
+		;- 後続處理へ遷移
+
+	;- 範圍外
+	CASEELSE
+		CLEARLINE 1
+		REUSELASTLINE 无效数值
+		GOTO INPUT_LOOP
+ENDSELECT

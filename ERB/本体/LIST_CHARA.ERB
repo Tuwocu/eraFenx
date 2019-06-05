@@ -1,0 +1,1383 @@
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+;
+;	Module		:LIST_CHARA.ERB
+;	Facility	:リスト（角色）。
+;
+;	Licence		:ライセンスフリー。
+;
+;	Modification Data:
+;
+;	Edit	Date			Author					Reason
+;	001		20XX/XX/XX		----					新規作成
+;	002		2017/03/02		morph					eraTWからリスト显示関数を輸入してeraAS用に書きなおした（LIST_CHARA_STATUS_GROUP/LIST_CHARA_STATUS）
+;	003		2018/11/11		morph					ソートした内容を登录番号に反映できるように（LIST_CHARA_MEMORY_SORT）
+;	004     2019/04/15      M                       显示系改善＆リファクタリングMOD: TP/AP显示をPRINT_STATUSへ集約＆ 0 になったら隐藏モード
+;
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+
+;===============================================================================
+;  ◇記載関数一覧(記載順)
+;
+;		Module Name						Explanation
+;
+; *- XXXX
+;
+;	・ LIST_CHARA						LIST:角色リスト
+;	・ LIST_CHARA_STATUS_MAIN			LIST:ステータス显示付き角色リスト関数
+;	・ LIST_CHARA_STATUS_GROUP			LIST:ラベル使用部分角色リスト関数
+;	・ LIST_CHARA_MEMORY_SORT			LIST:LIST変数の内容を登录番号に反映する関数
+;
+;===============================================================================
+
+;-------------------------------------------------------------------------------
+;   XXXX
+;-------------------------------------------------------------------------------
+
+;=================================================
+;   sub LIST_CHARA
+;=================================================
+;   LIST:角色リスト
+;-------------------------------------------------
+; Input:
+;  ARGS:0				説明文
+;  ARG:0				ページ位置
+;  ARGS:1				再帰した際のエラーメッセージ
+; Output:
+;  RESULT:0				角色(1000の場合は"戻る")
+;  RESULT:1				ページ位置
+;-------------------------------------------------
+@LIST_CHARA(ARGS:0, ARG:0, ARGS:1, ARG:1)
+#DIM L_INPUT
+#DIM L_I
+#DIM L_PAGE
+#DIM L_CNT_DATA
+#DIM L_CNT_PRINT
+#DIM L_PREV
+#DIM L_NEXT
+#DIMS L_ERR_MSG
+
+;-----------------------------
+;- 初期处理
+;-----------------------------
+
+L_INPUT=0
+L_I=0
+L_PAGE=ARG:0
+L_CNT_DATA=0
+L_CNT_PRINT=0
+
+; 角色总数
+L_CNT_DATA = CHARANUM
+; 角色显示数/P
+L_CNT_PRINT = FLAG:定数_角色显示数
+
+L_ERR_MSG = %ARGS:1%
+
+SIF !INRANGE(L_PAGE, 0, L_CNT_DATA / L_CNT_PRINT)
+	L_PAGE = 0
+
+;-----------------------------
+;- 处理开始
+;-----------------------------
+
+$PRINT_LIST
+	;ライン显示:新ページ
+	CALL C_LINE
+	PRINTFORML %ARGS:0%　＜page.{L_PAGE}＞ (计{L_CNT_DATA}人)
+	DRAWLINE
+	L_I = 0
+	WHILE 1
+		;SET:开始值
+		SIF L_I < (L_PAGE * L_CNT_PRINT)
+			L_I = (L_PAGE * L_CNT_PRINT)
+		;ページ範囲外
+		SIF L_I >= ( (L_PAGE + 1) * L_CNT_PRINT)
+			BREAK
+		;- 最大角色数超過
+		IF L_I >= L_CNT_DATA
+			;空行
+			PRINTL
+		ELSE
+			PRINTFORM [%TOSTR(L_I),3%] 
+			;- 显示:ターゲット(詳細)
+			SELECTCASE ARGS:0
+			CASE "次世代创造", "设施配属", "特别保护", "正式居民", "阶级付与", "业务"
+				CALL EX_INFO_TARGET_DETAIL(L_I, , ARG:1, ARGS:0)
+			CASEELSE
+				CALL INFO_TARGET_DETAIL(L_I,,ARG:1)
+			ENDSELECT
+			PRINTL 
+		ENDIF
+		L_I += 1
+	WEND
+
+	PRINTL
+	L_PREV = (L_PAGE <= 0) ? 0 # 1
+	L_NEXT = ( L_PAGE >= (L_CNT_DATA / L_CNT_PRINT) ) ? 0 # 1
+
+	PRINTFORMLC \@(!L_PREV) ? %" " * 16% # [1007]上一页\@
+	PRINTFORMLC [1000]戻る
+	PRINTFORMLC \@(!L_NEXT) ? %" " * 16% # [1009]下一页\@
+	PRINTL 
+	PRINTL 
+
+	SIF STRLENS(L_ERR_MSG)
+		REUSELASTLINE （%L_ERR_MSG%）
+
+	$INPUT_LOOP_1
+	INPUT
+	L_INPUT = RESULT
+	L_ERR_MSG=
+
+	;- 显示:ページ別
+	SELECTCASE L_INPUT
+		;- 終了
+		CASE 1000
+			RETURN 1000
+		;- 角色
+		CASE 0 TO L_CNT_DATA -1
+			RESULT:1 = L_PAGE
+			RETURNFORM L_INPUT
+		;上一页
+		CASE 1007
+			SIF !L_PREV
+				GOTO ERROR
+			L_PAGE -= 1
+		;下一页
+		CASE 1009
+			SIF !L_NEXT
+				GOTO ERROR
+			L_PAGE += 1
+		;- その他
+		CASEELSE
+			$ERROR
+			;INPUTエラー対応
+			CALL C_INPUT_ERROR
+			GOTO INPUT_LOOP_1
+	ENDSELECT
+
+	GOTO PRINT_LIST
+
+
+
+
+;-------------------------------------------------
+;ステータス显示付き角色リスト関数
+;-------------------------------------------------
+;eraTWから移植した角色リスト显示関数
+;显示する情報と显示範囲を操作して@LIST_CHARA_STATUS_GROUPで角色リストを显示する
+@LIST_CHARA_STATUS_MAIN(FIRST_PAGE = 0, NOW_GROUP, OP, SCENE = "DEFAULT", MEMO)
+#DIM  FIRST_PAGE           ;
+#DIM  PACK_PAGE            ;显示内容の切替用
+#DIMS OP                   ;機能オプション
+#DIMS SCENE                ;使用する場面、喫茶店など
+#DIMS MEMO                 ;自由に設定する一行显示
+#DIMS LIST_PACK,    30     ;ここでいうリストとは複数の显示ステータス項目（ラベル）をひとまとめにしたもの≒1ページの显示内容
+                           ;LIST_PACKはさらにそれをひとまとまりのセットとして扱い、SCENEごとに切り替えられるようにする
+#DIM  PACK_SIZE            ;リストの種数≒ページ数
+#DIM  DYNAMIC GET_LIST = 1 ;角色リスト更新フラグ、必ず最初に一回
+#DIM  CHARA_LIST , 1000    ;角色リスト本体、登录番号にて記録、上限がわからんがとりあえず1000人
+#DIM  CHARA_CNT            ;角色リストに取得した角色の数
+#DIM  REF NOW_GROUP        ;显示中の角色グループ
+#DIM  LAST_GROUP           ;角色グループ总数
+#DIM  SHOW_START           ;显示开始の角色ラベルID
+#DIM  SHOW_END             ;显示終了の角色ラベルID
+#DIM  INPUT_MIN            ;显示中角色ラベルIDの最小值、配列の上下限を加味した入力制限
+#DIM  INPUT_MAX            ;显示中角色ラベルIDの最大值
+#DIMS SORT_TYPE            ;角色リストのソートタイプ
+#DIM  L_INPUT              ;入力内容の一時保持
+#DIMS PREV_SCENE           ;前に呼びだされた時の場面
+SIF !FLAG:定数_咖啡厅显示数
+	FLAG:定数_咖啡厅显示数 = 10
+
+;LIST_PACKの取得
+IF PREV_SCENE == SCENE
+ELSE
+	CALLF DIM_TABLE_LIST_PACK(SCENE, LIST_PACK, PACK_SIZE)
+	PREV_SCENE '= SCENE
+ENDIF
+
+SIF !INRANGE(PACK_PAGE, 0, PACK_SIZE - 1)
+	PACK_PAGE = 0
+
+IF GET_LIST
+	IF !STRCOUNT(OP, "「清单未更新」")
+		;角色リストの作成
+		CALLF MEMBER_LIST_ALL(SCENE, CHARA_LIST, CHARA_CNT)
+		GET_LIST = 0
+		VARSET SORT_TYPE
+	ENDIF
+	IF !STRCOUNT(OP, "「页面未更新」")
+		PACK_PAGE = FIRST_PAGE
+	ENDIF
+ENDIF
+
+;現在のタイプの总グループ数を更新
+LAST_GROUP = 1 + (CHARA_CNT - 1) / FLAG:定数_咖啡厅显示数
+NOW_GROUP  = MIN(NOW_GROUP, LAST_GROUP)
+
+SHOW_START = (NOW_GROUP - 1) * FLAG:定数_咖啡厅显示数
+SHOW_END   = NOW_GROUP * FLAG:定数_咖啡厅显示数
+INPUT_MIN  = MAX(0, SHOW_START)
+INPUT_MAX  = MIN(CHARA_CNT - 1, SHOW_END)
+
+
+;一行显示
+IF STRLENS(MEMO)
+	DRAWLINE
+	PRINTFORML %MEMO%
+ENDIF
+;ヘッダー情報显示
+CALL LIST_CHARA_STATUS_HEADER(SCENE, LIST_PACK:PACK_PAGE, CHARA_CNT, NOW_GROUP, LAST_GROUP)
+;リストの显示处理
+CALL LIST_CHARA_STATUS_GROUP(SCENE, CHARA_LIST, SHOW_START, SHOW_END, INPUT_MIN, INPUT_MAX, SORT_TYPE, LIST_PACK:PACK_PAGE)
+DRAWLINE
+;入力处理、共通ボタン处理もここ
+CALL LIST_CHARA_INPUT(SCENE, OP, CHARA_LIST, CHARA_CNT, NOW_GROUP, LAST_GROUP, LIST_PACK, PACK_PAGE, PACK_SIZE, INPUT_MIN, INPUT_MAX, SORT_TYPE, GET_LIST)
+L_INPUT = RESULT
+SIF L_INPUT < 0
+	RESTART
+RETURN L_INPUT
+
+
+;-------------------------------------------------
+;角色リストヘッダー関数
+;-------------------------------------------------
+@LIST_CHARA_STATUS_HEADER(SCENE, LIST_NAME, CHARA_CNT, NOW_GROUP, LAST_GROUP)
+#DIMS SCENE      ;現在の場面
+#DIMS LIST_NAME  ;显示項目の分類＝PACK_NAME
+#DIM  CHARA_CNT  ;角色リスト配列の角色数
+#DIM  NOW_GROUP  ;閲覧中の角色グループ
+#DIM  LAST_GROUP ;角色グループの最大值
+DRAWLINE
+SELECTCASE SCENE
+CASE "CAFE"
+	IF Flag:时段 == 0
+		PRINTFORM 【时段:上午】
+	ELSEIF Flag:时段 == 1
+		PRINTFORM 【时段:中午】
+	ELSEIF Flag:时段 == 2
+		PRINTFORM 【时段:下午】
+	ELSE
+		PRINTFORM 【时段:晚上】
+	ENDIF
+	CALL PRINT_RANGE_STATUS(-1, "TP", , , , "隐藏")
+	CALL PRINT_RANGE_STATUS(-1, "AP", , , , "隐藏")
+	PRINTL
+ENDSELECT
+PRINTFORML 显示情報：%LIST_NAME, 18, LEFT%　（{CHARA_CNT}名　{NOW_GROUP}/{LAST_GROUP}）
+DRAWLINE
+
+
+
+;-------------------------------------------------
+;ラベル使用部分角色リスト関数
+;-------------------------------------------------
+;CHARA_LIST配列の一部を抜き出して显示する
+;CHARA_LIST配列とLABEL_LIST配列を渡して使用する
+;LABEL_LIST配列に文字列を指定することで任意のステータスを一行显示することが出来る
+@LIST_CHARA_STATUS_GROUP(SCENE, CHARA_LIST, SHOW_START, SHOW_END, INPUT_MIN, INPUT_MAX, SORT_TYPE, LIST_NAME)
+#DIMS     SCENE         ;使用するシーン
+#DIM  REF CHARA_LIST    ;角色リスト配列
+#DIM      SHOW_START    ;显示开始の角色ラベルID
+#DIM      SHOW_END      ;显示終了の角色ラベルID
+#DIM      INPUT_MIN     ;显示中角色ラベルIDの最小值
+#DIM      INPUT_MAX     ;显示中角色ラベルIDの最大值
+#DIMS     LABEL_LIST, 30;显示内容の取得用
+#DIM      LABEL_SIZE    ;显示内容の数
+#DIMS     SORT_TYPE     ;現在のソート順
+#DIMS     LIST_NAME     ;現在の显示内容
+#DIMS     PREV_LIST     ;前回显示した内容
+#DIM      C_LABEL       ;角色ラベルID
+#DIM      DETAIL_OP     ;基础情报の显示内容の切り替え用
+;先に例外处理
+IF LIST_NAME == "基础情报"
+	SELECTCASE SCENE
+	{
+	CASE "EXPLORER", "RPG", 
+		"RPG_武器强化", 
+		"RPG_技能成长", 
+		"RPG_注射强化剂", 
+		"RPG_注射超人药", 
+		"RPG_支援配置", 
+		"RPG_后方配置", 
+		"RPG_回收配置", 
+		"RPG_探索配置"
+	}
+		SELECTCASE SCENE
+		CASE "RPG_注射强化剂"
+			DETAIL_OP = 1
+		CASE "RPG_注射超人药"
+			DETAIL_OP = 2
+		CASE "RPG_技能成长"
+			DETAIL_OP = 3
+		CASEELSE
+			DETAIL_OP = 0
+		ENDSELECT
+		FOR C_LABEL, SHOW_START, SHOW_END
+			IF INRANGE(C_LABEL, INPUT_MIN, INPUT_MAX)
+				PRINTFORM [{C_LABEL, 3}] 
+				CALL RPG_INFO_TARGET_DETAIL(CHARA_LIST:C_LABEL, DETAIL_OP)
+			ENDIF
+			PRINTL
+		NEXT
+	{
+	CASE 
+		"MNG_登录_登录抹消", 
+		"MNG_入居_一号室", "MNG_入居_二号室", "MNG_入居_三号室", "MNG_入居_四号室", "MNG_入居_五号室", 
+		"MNG_入居_六号室", "MNG_入居_七号室", "MNG_入居_八号室", "MNG_入居_九号室", "MNG_入居_十号室", 
+		
+		"MNG_登录_正式居民", "MNG_登录_特别保护", "MNG_登录_姓名変更", 
+		"MNG_转职_圣职者", "MNG_转职_女仆", "MNG_转职_偶像", "MNG_转职_社会人", "MNG_转职_局员", "MNG_转职_娼妓", 
+		"MNG_配属_学院学生", "MNG_配属_支援住宅", "MNG_配属_爱情宾馆店员", "MNG_配属_カジノ店员", 
+		"MNG_特殊_外見変更", "MNG_特殊_治療設備", "MNG_特殊_品種改良", "MNG_特殊_身体强化", "MNG_特殊_次世代创造", 
+		"MNG_登录_交友制御", "MNG_登录_衣装変更", "MNG_登录_範囲消去", "MNG_登录_抹消中止"
+	}
+		SELECTCASE SCENE
+		CASE "MNG_配属_学院学生", "MNG_配属_支援住宅", "MNG_配属_爱情宾馆店员", "MNG_配属_カジノ店员"
+			DETAIL_OP = 1
+		CASE "MNG_特殊_治療設備"
+			DETAIL_OP = 2
+		CASE "MNG_特殊_品種改良"
+			DETAIL_OP = 3
+		CASE "MNG_特殊_身体强化"
+			DETAIL_OP = 4
+		CASE "MNG_特殊_次世代创造"
+			DETAIL_OP = 5
+		{
+		CASE "MNG_入居_一号室", "MNG_入居_二号室", "MNG_入居_三号室", "MNG_入居_四号室", "MNG_入居_五号室", 
+			"MNG_入居_六号室", "MNG_入居_七号室", "MNG_入居_八号室", "MNG_入居_九号室", "MNG_入居_十号室", 
+		}
+			DETAIL_OP = 6
+		CASE "MNG_登录_交友制御"
+			DETAIL_OP = 7
+		CASEELSE
+			DETAIL_OP = 0
+		ENDSELECT
+		
+		FOR C_LABEL, SHOW_START, SHOW_END
+			IF INRANGE(C_LABEL, INPUT_MIN, INPUT_MAX)
+				PRINTFORM [{C_LABEL, 3}] 
+				CALL MNG_INFO_TARGET_DETAIL(CHARA_LIST:C_LABEL, DETAIL_OP)
+			ENDIF
+			PRINTL
+		NEXT
+
+	CASEELSE
+		FOR C_LABEL, SHOW_START, SHOW_END
+			IF INRANGE(C_LABEL, INPUT_MIN, INPUT_MAX)
+				PRINTFORM [{C_LABEL, 3}] 
+				CALL INFO_TARGET_DETAIL(CHARA_LIST:C_LABEL)
+			ENDIF
+			PRINTL
+		NEXT
+	ENDSELECT
+	RETURN
+ENDIF
+;ラベルリスト取得
+IF LIST_NAME == PREV_LIST
+ELSE
+	CALLF DIM_TABLE_LABEL_LIST(LIST_NAME, LABEL_LIST, LABEL_SIZE)
+	PREV_LIST '= LIST_NAME
+ENDIF
+;デバッグ確認用
+;CALL VAR_SHOW_STR_ARRAY(LABEL_LIST, LABEL_SIZE)
+CALL INFO_CHARA_DETAIL_LABEL(-1, 0, SORT_TYPE, LABEL_LIST, LABEL_SIZE)
+DRAWLINE
+FOR C_LABEL, SHOW_START, SHOW_END
+	IF INRANGE(C_LABEL, INPUT_MIN, INPUT_MAX)
+		CALL INFO_CHARA_DETAIL_LABEL(C_LABEL, CHARA_LIST:C_LABEL, SORT_TYPE, LABEL_LIST, LABEL_SIZE)
+	ELSE
+		PRINTL
+	ENDIF
+NEXT
+
+
+
+;-------------------------------------------------
+;シーン切替可能入力関数
+;-------------------------------------------------
+;LIST_CHARA_STATUS_MAINの入力处理用
+;自分でも思う、引数多すぎ
+;SCENEごとに入力の結果と共通ボタン处理を切り替えられるようにした
+;RETURNが負数ならば呼び出し元でRESTARTが実行され、角色リスト处理が続行します
+;0以上の数值なら呼び出し元からさらにRETURN RESULTで大本の関数に数值を渡せます
+@LIST_CHARA_INPUT(SCENE, OP, CHARA_LIST, CHARA_CNT, NOW_GROUP, LAST_GROUP, LIST_PACK, PACK_PAGE, PACK_SIZE, INPUT_MIN, INPUT_MAX, SORT_TYPE, GET_LIST)
+#DIMS     SCENE      ;使用場面
+#DIMS     OP         ;オプション文字列
+#DIM  REF CHARA_LIST ;角色リスト一覧配列
+#DIM      CHARA_CNT  ;リスト中の角色数
+#DIM  REF NOW_GROUP  ;現在显示中の角色グループ
+#DIM      LAST_GROUP ;角色グループの最後尾
+#DIMS REF LIST_PACK  ;パックリスト配列
+#DIM  REF PACK_PAGE  ;显示データのページ数
+#DIM      PACK_SIZE  ;パックリスト配列のサイズ
+#DIM      INPUT_MIN  ;显示中角色ラベルIDの最小值
+#DIM      INPUT_MAX  ;显示中角色ラベルIDの最大值
+#DIMS REF SORT_TYPE  ;現在のソート順
+#DIM  REF GET_LIST   ;角色リスト更新处理用フラグ
+#DIMS     INPUT_STR  ;入力内容の一時保持
+#DIM      INPUT_INT  ;入力内容の一時保持
+#DIM      L_INPUT    ;入力内容の一時保持
+VARSET INPUT_STR
+VARSET INPUT_INT
+SELECTCASE SCENE
+CASE "DEFAULT"
+	$DO_DEFAULT
+	;ボタン長さ：
+	;[----] - 
+	;%LIST_PACK:((PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE), 20%
+	;
+	;情報移動はボタン部9、ラベル部20で29
+	;角色移動はボタン部9、ラベル部14で23
+	PRINTFORM %" " * 29%
+	PRINTFORM 　　
+	SIF CHARA_CNT > 0 && NOW_GROUP > 1
+		PRINTBUTTON "[8888] - 　前の角色　", "8888"
+	PRINTFORML 
+	PRINTFORM 　
+	PRINTBUTTON @"[4444] - %LIST_PACK:((PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE), 20%", "4444"
+	PRINTFORM 　
+	PRINTFORM %" " * 23%
+	PRINTFORM 　
+	PRINTBUTTON @"[6666] - %LIST_PACK:((PACK_PAGE + 1 + PACK_SIZE) % PACK_SIZE), 20%", "6666"
+	PRINTFORML 
+	PRINTFORM 　
+	PRINTBUTTON "[1111] - 　　　　ソートの反映", "1111"
+	PRINTFORM 　
+	IF CHARA_CNT > 0 && NOW_GROUP < LAST_GROUP
+		PRINTBUTTON "[2222] - 　次の角色　", "2222"
+	ELSE
+		PRINTFORM %" " * 23%
+	ENDIF
+	PRINTFORM 　
+	PRINTBUTTON "[3333] - 　　　　显示人数変更", "3333"
+	PRINTFORML 
+	DRAWLINE
+	PRINTFORM 　
+	PRINTBUTTON "[9999] - 　　　　もどる　　　　", "9999"
+	PRINTFORML 
+	PRINTFORML 
+	DO
+		INPUTS
+		INPUT_STR '= RESULTS
+		SIF !STRLENS(INPUT_STR)
+			GOTO DEFAULT_RETRY
+		IF ISNUMERIC(INPUT_STR)
+			INPUT_INT = TOINT(INPUT_STR)
+			SELECTCASE INPUT_INT
+			;先にシステム系を处理、角色数が多いので4ケタに拡張
+			CASE 1111
+				CALL LIST_CHARA_MEMORY_SORT(CHARA_LIST, CHARA_CNT)
+				RETURN 0
+			CASE 8888
+				SIF !(CHARA_CNT > 0 && NOW_GROUP > 1)
+					GOTO DEFAULT_RETRY
+				NOW_GROUP --
+				RETURN -1
+			CASE 2222
+				SIF !(CHARA_CNT > 0 && NOW_GROUP < LAST_GROUP)
+					GOTO DEFAULT_RETRY
+				NOW_GROUP ++
+				RETURN -1
+			CASE 3333
+				PRINTFORML ページ最大显示人数を選択または入力してください（1～999人）
+				PRINTFORM [5] 5人 
+				PRINTFORM [10] 10人 
+				PRINTFORM [15] 15人 
+				PRINTFORML [20] 20人 
+				PRINTFORML [0] 変更しない
+				INPUT
+				L_INPUT = RESULT
+				IF INRANGE(L_INPUT, 1, 999)
+					FLAG:定数_咖啡厅显示数 = L_INPUT
+					PRINTFORMW 显示人数を{L_INPUT}人に変更しました
+					NOW_GROUP = 1
+				ENDIF
+				RETURN -1
+			CASE 4444
+				PACK_PAGE = (PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE
+				RETURN -1
+			CASE 6666
+				PACK_PAGE = (PACK_PAGE + 1 + PACK_SIZE) % PACK_SIZE
+				RETURN -1
+			CASE 9999
+				NOW_GROUP = 1
+				RETURN
+			CASEELSE
+			;角色が選択された時
+				SIF !INRANGE(INPUT_INT, INPUT_MIN, INPUT_MAX)
+					GOTO DEFAULT_RETRY
+				;ここだけDO-LOOPぬけます
+				BREAK
+				$DEFAULT_RETRY
+				CALL C_INPUT_ERROR("無効な入力です")
+				CONTINUE
+			ENDSELECT
+		ELSE
+			;STRで受け取った時、SORT处理なので处理が可能な場合は全てRESTART
+			;妙な文字列を受け取った場合にはCONTINUE
+			;DO-LOOPを脱出できるのはINTかつ、リスト上の角色を選択した場合のみ
+			CALL CHARA_SORT_CTRL(CHARA_LIST, CHARA_CNT, INPUT_STR, SORT_TYPE)
+			IF RESULT
+				RETURN -1
+			ELSE
+				GOTO DEFAULT_RETRY
+			ENDIF
+		ENDIF
+	LOOP 1
+	IF STRCOUNT(OP, "「情報显示」")
+		CALL INFO_STATUS_GROUP(CHARA_LIST, INPUT_INT, CHARA_CNT, OP)
+		SIF RESULT < 0
+			RETURN -1
+		NOW_GROUP = 1
+		SIF STRCOUNT(OP, "「最終確認」")
+			RETURN RESULT
+	ELSE
+		NOW_GROUP = 1
+		RETURN CHARA_LIST:INPUT_INT
+	ENDIF
+CASE "CAFE"
+	;ボタン長さ：
+	;[----] - 
+	;%LIST_PACK:((PACK_PAGE - 1 + 11) % 11), 20%
+	;
+	;情報移動はボタン部9、ラベル部20で29
+	;角色移動はボタン部9、ラベル部14で23
+	PRINTFORM %" " * 29%
+	PRINTFORM 　　
+	SIF CHARA_CNT > 0 && NOW_GROUP > 1
+		PRINTBUTTON "[8888] - 　前の角色　", "8888"
+	PRINTFORML 
+	PRINTFORM 　
+	PRINTBUTTON @"[4444] - %LIST_PACK:((PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE), 20%", "4444"
+	PRINTFORM 　
+	PRINTFORM %" " * 23%
+	PRINTFORM 　
+	PRINTBUTTON @"[6666] - %LIST_PACK:((PACK_PAGE + 1 + PACK_SIZE) % PACK_SIZE), 20%", "6666"
+	PRINTFORML 
+	IF CHARANUM < 200
+		PRINTFORM 　
+		PRINTBUTTON "[1111] - 　　新住人を見定める", "1111"
+		PRINTFORM 　
+	ELSE
+		PRINTFORM %" " * 29%
+		PRINTFORM 　　
+	ENDIF
+	IF CHARA_CNT > 0 && NOW_GROUP < LAST_GROUP
+		PRINTBUTTON "[2222] - 　次の角色　", "2222"
+	ELSE
+		PRINTFORM %" " * 23%
+	ENDIF
+	PRINTFORM 　
+	PRINTBUTTON "[3333] - 　　　　显示人数変更", "3333"
+	PRINTFORML 
+	DRAWLINE
+	PRINTFORM 　
+	PRINTBUTTON "[9999] - 　　　　もどる　　　　", "9999"
+	PRINTFORML 
+	PRINTFORML 
+	DO
+		INPUTS
+		INPUT_STR '= RESULTS
+		SIF !STRLENS(INPUT_STR)
+			GOTO CAFE_RETRY
+		IF ISNUMERIC(INPUT_STR)
+			INPUT_INT = TOINT(INPUT_STR)
+			SELECTCASE INPUT_INT
+			;先にシステム系を处理、角色数が多いので4ケタに拡張
+			CASE 8888
+				SIF !(CHARA_CNT > 0 && NOW_GROUP > 1)
+					GOTO CAFE_RETRY
+				NOW_GROUP --
+				RETURN -1
+			CASE 2222
+				SIF !(CHARA_CNT > 0 && NOW_GROUP < LAST_GROUP)
+					GOTO CAFE_RETRY
+				NOW_GROUP ++
+				RETURN -1
+			CASE 1111
+				SIF CHARANUM >= 200
+					GOTO CAFE_RETRY
+				CALL CITY_SCOUT
+				SIF RESULT
+					GET_LIST = 1
+				RETURN -1
+			CASE 3333
+				PRINTFORML ページ最大显示人数を選択または入力してください（1～999人）
+				PRINTFORM [5] 5人 
+				PRINTFORM [10] 10人 
+				PRINTFORM [15] 15人 
+				PRINTFORML [20] 20人 
+				PRINTFORML [0] 変更しない
+				INPUT
+				L_INPUT = RESULT
+				IF INRANGE(L_INPUT, 1, 999)
+					FLAG:定数_咖啡厅显示数 = L_INPUT
+					PRINTFORMW 显示人数を{L_INPUT}人に変更しました
+					GET_LIST = 1
+					NOW_GROUP = 1
+				ENDIF
+				RETURN -1
+			CASE 4444
+				PACK_PAGE = (PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE
+				RETURN -1
+			CASE 6666
+				PACK_PAGE = (PACK_PAGE + 1 + PACK_SIZE) % PACK_SIZE
+				RETURN -1
+			CASE 9999
+				NOW_GROUP = 1
+				RETURN
+			CASEELSE
+			;角色が選択された時
+				SIF !INRANGE(INPUT_INT, INPUT_MIN, INPUT_MAX)
+					GOTO CAFE_RETRY
+				;ここだけDO-LOOPぬけます
+				BREAK
+				$CAFE_RETRY
+				CALL C_INPUT_ERROR("無効な入力です")
+				CONTINUE
+			ENDSELECT
+		ELSE
+			;STRで受け取った時、SORT处理なので处理が可能な場合は全てRESTART
+			;妙な文字列を受け取った場合にはCONTINUE
+			;DO-LOOPを脱出できるのはINTかつ、リスト上の角色を選択した場合のみ
+			CALL CHARA_SORT_CTRL(CHARA_LIST, CHARA_CNT, INPUT_STR, SORT_TYPE)
+			IF RESULT
+				RETURN -1
+			ELSE
+				GOTO CAFE_RETRY
+			ENDIF
+		ENDIF
+	LOOP 1
+	CALL CAFE_TALK_GROUP(CHARA_LIST, INPUT_INT, CHARA_CNT, OP)
+	RETURN -1
+{
+CASE "EXPLORER", "RPG", 
+	"RPG_武器强化", 
+	"RPG_技能成长", 
+	"RPG_强化剂注射", 
+	"RPG_超人药注射", 
+	"RPG_支援配置", 
+	"RPG_后方配置", 
+	"RPG_回收配置", 
+	"RPG_探索配置"
+}
+
+	;ボタン長さ：
+	;[----] - 
+	;%LIST_PACK:((PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE), 20%
+	;
+	;情報移動はボタン部9、ラベル部20で29
+	;角色移動はボタン部9、ラベル部14で23
+	PRINTFORM %" " * 29%
+	PRINTFORM 　　
+	SIF CHARA_CNT > 0 && NOW_GROUP > 1
+		PRINTBUTTON "[8888] - 　前の角色　", "8888"
+	PRINTFORML 
+	PRINTFORM 　
+	PRINTBUTTON @"[4444] - %LIST_PACK:((PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE), 20%", "4444"
+	PRINTFORM 　
+	PRINTFORM %" " * 23%
+	PRINTFORM 　
+	PRINTBUTTON @"[6666] - %LIST_PACK:((PACK_PAGE + 1 + PACK_SIZE) % PACK_SIZE), 20%", "6666"
+	PRINTFORML 
+	PRINTFORM 　
+	IF GROUPMATCH(SCENE, "RPG_武器强化", "RPG_技能成长", "RPG_强化剂注射", "RPG_超人药注射", "RPG_支援配置", "RPG_后方配置", "RPG_回收配置", "RPG_探索配置")
+		PRINTBUTTON "[1111] - 　　　　全角色解任", "1111"
+	ELSE
+		PRINTFORM %" " * 29%
+	ENDIF
+	PRINTFORM 　
+	IF CHARA_CNT > 0 && NOW_GROUP < LAST_GROUP
+		PRINTBUTTON "[2222] - 　次の角色　", "2222"
+	ELSE
+		PRINTFORM %" " * 23%
+	ENDIF
+	PRINTFORM 　
+	PRINTBUTTON "[3333] - 　　　　显示人数変更", "3333"
+	PRINTFORML 
+	IF GROUPMATCH(SCENE, "RPG_武器强化", "RPG_技能成长", "RPG_强化剂注射", "RPG_超人药注射", "RPG_支援配置", "RPG_后方配置", "RPG_回收配置", "RPG_探索配置")
+		DRAWLINE
+		PRINTFORM 　
+		SIF SCENE == "RPG_武器强化"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1000] - 　　　　　　武器强化", "1000"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "RPG_技能成长"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1001] - 　　技能成长　", "1001"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "RPG_强化剂注射"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1002] - 　　　　　强化剂注射", "1002"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "RPG_超人药注射"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1003] - 　　超人药注射", "1003"
+		PRINTFORML 
+		RESETCOLOR
+		
+		SIF SCENE == "RPG_支援配置"
+			SETCOLOR COLOR("黄色")
+		PRINTFORM 　
+		PRINTBUTTON "[1004] - 　　　　　　支援配置", "1004"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "RPG_后方配置"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1005] - 　　后方配置　", "1005"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "RPG_回收配置"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1006] - 　　　　　　回收配置", "1006"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "RPG_探索配置"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1007] - 　　　探索配置", "1007"
+		PRINTFORML 
+		RESETCOLOR
+	ELSE
+	ENDIF
+	DRAWLINE
+	PRINTFORM 　
+	PRINTBUTTON "[9999] - 　　　　もどる　　　　", "9999"
+	PRINTFORML 
+	PRINTFORML 
+	DO
+		INPUTS
+		INPUT_STR '= RESULTS
+		SIF !STRLENS(INPUT_STR)
+			GOTO RPG_RETRY
+		IF ISNUMERIC(INPUT_STR)
+			INPUT_INT = TOINT(INPUT_STR)
+			SELECTCASE INPUT_INT
+			;先にシステム系を处理、角色数が多いので4ケタに拡張
+			CASE 1111
+				IF GROUPMATCH(SCENE, "RPG_武器强化", "RPG_技能成长", "RPG_强化剂注射", "RPG_超人药注射", "RPG_支援配置", "RPG_后方配置", "RPG_回收配置", "RPG_探索配置")
+					PRINTFORML 本当に全ての角色を部隊から外しますか？
+					PRINTFORML 
+					PRINTFORML [1] 外す
+					PRINTFORML [0] やめる
+					INPUT
+					IF RESULT == 1
+						CALL SUPPORT_CHARA_ALL_REMOVE
+					ELSE
+						PRINTFORMW 解任をキャンセルします
+					ENDIF
+					RETURN -1
+				ELSE
+					GOTO RPG_RETRY
+				ENDIF
+			CASE 1000 TO 1007
+				SIF !GROUPMATCH(SCENE, "RPG_武器强化", "RPG_技能成长", "RPG_强化剂注射", "RPG_超人药注射", "RPG_支援配置", "RPG_后方配置", "RPG_回收配置", "RPG_探索配置")
+					GOTO RPG_RETRY
+				RETURN INPUT_INT
+			CASE 8888
+				SIF !(CHARA_CNT > 0 && NOW_GROUP > 1)
+					GOTO RPG_RETRY
+				NOW_GROUP --
+				RETURN -1
+			CASE 2222
+				SIF !(CHARA_CNT > 0 && NOW_GROUP < LAST_GROUP)
+					GOTO RPG_RETRY
+				NOW_GROUP ++
+				RETURN -1
+			CASE 3333
+				PRINTFORML ページ最大显示人数を選択または入力してください（1～999人）
+				PRINTFORM [5] 5人 
+				PRINTFORM [10] 10人 
+				PRINTFORM [15] 15人 
+				PRINTFORML [20] 20人 
+				PRINTFORML [0] 変更しない
+				INPUT
+				L_INPUT = RESULT
+				IF INRANGE(L_INPUT, 1, 999)
+					FLAG:定数_咖啡厅显示数 = L_INPUT
+					PRINTFORMW 显示人数を{L_INPUT}人に変更しました
+					GET_LIST = 1
+					NOW_GROUP = 1
+				ENDIF
+				RETURN -1
+			CASE 4444
+				PACK_PAGE = (PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE
+				RETURN -1
+			CASE 6666
+				PACK_PAGE = (PACK_PAGE + 1 + PACK_SIZE) % PACK_SIZE
+				RETURN -1
+			CASE 9999
+				NOW_GROUP = 1
+				RETURN
+			CASEELSE
+			;角色が選択された時
+				SIF !INRANGE(INPUT_INT, INPUT_MIN, INPUT_MAX)
+					GOTO RPG_RETRY
+				;ここだけDO-LOOPぬけます
+				BREAK
+				$RPG_RETRY
+				CALL C_INPUT_ERROR("無効な入力です")
+				CONTINUE
+			ENDSELECT
+		ELSE
+			;STRで受け取った時、SORT处理なので处理が可能な場合は全てRESTART
+			;妙な文字列を受け取った場合にはCONTINUE
+			;DO-LOOPを脱出できるのはINTかつ、リスト上の角色を選択した場合のみ
+			CALL CHARA_SORT_CTRL(CHARA_LIST, CHARA_CNT, INPUT_STR, SORT_TYPE)
+			IF RESULT
+				RETURN -1
+			ELSE
+				GOTO RPG_RETRY
+			ENDIF
+		ENDIF
+	LOOP 1
+	IF STRCOUNT(OP, "「部隊配置」")
+		CALL SELECT_SUPPORT(CHARA_LIST:INPUT_INT)
+		RETURN -1
+	ELSEIF STRCOUNT(OP, "「情報显示」")
+		CALL INFO_STATUS_GROUP(CHARA_LIST, INPUT_INT, CHARA_CNT, OP)
+		SIF RESULT < 0
+			RETURN -1
+		SIF STRCOUNT(OP, "「最終確認」")
+			RETURN RESULT
+	ELSE
+		RETURN CHARA_LIST:INPUT_INT
+	ENDIF
+{
+CASE 
+		"MNG_登录_登录抹消", 
+		"MNG_入居_一号室", "MNG_入居_二号室", "MNG_入居_三号室", "MNG_入居_四号室", "MNG_入居_五号室", 
+		"MNG_入居_六号室", "MNG_入居_七号室", "MNG_入居_八号室", "MNG_入居_九号室", "MNG_入居_十号室", 
+		
+		"MNG_登录_正式居民", "MNG_登录_特别保护", "MNG_登录_姓名変更", 
+		"MNG_转职_圣职者", "MNG_转职_女仆", "MNG_转职_偶像", "MNG_转职_社会人", "MNG_转职_局员", "MNG_转职_娼妓", 
+		"MNG_配属_学院学生", "MNG_配属_支援住宅", "MNG_配属_爱情宾馆店员", "MNG_配属_カジノ店员", 
+		"MNG_特殊_外見変更", "MNG_特殊_治療設備", "MNG_特殊_品種改良", "MNG_特殊_身体强化", "MNG_特殊_次世代创造", 
+		"MNG_登录_交友制御", "MNG_登录_衣装変更", "MNG_登录_範囲消去", "MNG_登录_抹消中止"
+}
+	;ボタン長さ：
+	;[----] - 
+	;%LIST_PACK:((PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE), 20%
+	;
+	;情報移動はボタン部9、ラベル部20で29
+	;角色移動はボタン部9、ラベル部14で23
+	PRINTFORM %" " * 29%
+	PRINTFORM 　　
+	SIF CHARA_CNT > 0 && NOW_GROUP > 1
+		PRINTBUTTON "[8888] - 　前の角色　", "8888"
+	PRINTFORML 
+	PRINTFORM 　
+	PRINTBUTTON @"[4444] - %LIST_PACK:((PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE), 20%", "4444"
+	PRINTFORM 　
+	PRINTFORM %" " * 23%
+	PRINTFORM 　
+	PRINTBUTTON @"[6666] - %LIST_PACK:((PACK_PAGE + 1 + PACK_SIZE) % PACK_SIZE), 20%", "6666"
+	PRINTFORML 
+	PRINTFORM 　
+	
+	PRINTFORM %" " * 29%
+	PRINTFORM 　
+	IF CHARA_CNT > 0 && NOW_GROUP < LAST_GROUP
+		PRINTBUTTON "[2222] - 　次の角色　", "2222"
+	ELSE
+		PRINTFORM %" " * 23%
+	ENDIF
+	PRINTFORM 　
+	PRINTBUTTON "[3333] - 　　　　显示人数変更", "3333"
+	PRINTFORML 
+	{
+	IF GROUPMATCH(SCENE, 
+		"MNG_登录_登录抹消", 
+		"MNG_入居_一号室", "MNG_入居_二号室", "MNG_入居_三号室", "MNG_入居_四号室", "MNG_入居_五号室", 
+		"MNG_入居_六号室", "MNG_入居_七号室", "MNG_入居_八号室", "MNG_入居_九号室", "MNG_入居_十号室", 
+		
+		"MNG_登录_正式居民", "MNG_登录_特别保护", "MNG_登录_姓名変更", 
+		"MNG_转职_圣职者", "MNG_转职_女仆", "MNG_转职_偶像", "MNG_转职_社会人", "MNG_转职_局员", "MNG_转职_娼妓", 
+		"MNG_配属_学院学生", "MNG_配属_支援住宅", "MNG_配属_爱情宾馆店员", "MNG_配属_カジノ店员", 
+		"MNG_特殊_外見変更", "MNG_特殊_治療設備", "MNG_特殊_品種改良", "MNG_特殊_身体强化", "MNG_特殊_次世代创造", 
+		"MNG_登录_交友制御", "MNG_登录_衣装変更", "MNG_登录_範囲消去", "MNG_登录_抹消中止"
+		)
+	}
+
+		
+		DRAWLINE
+		PRINTFORM 　登录｜
+		SIF SCENE == "MNG_登录_正式居民"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1011] - 正式居民", "1011"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "MNG_登录_特别保护"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1012] - 　特别保护", "1012"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "MNG_登录_姓名変更"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1013] - 　姓名変更", "1013"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "MNG_登录_交友制御"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1029] - 　交友制御", "1029"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "MNG_登录_衣装変更"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1030] - 　衣装変更", "1030"
+		PRINTFORM 　
+		RESETCOLOR
+		PRINTFORML
+		
+		
+		PRINTFORM 　转职｜
+		SIF SCENE == "MNG_转职_圣职者"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1014] - 　　圣职者", "1014"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "MNG_转职_女仆"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1015] - 　　女仆", "1015"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "MNG_转职_偶像"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1016] - 　偶像", "1016"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "MNG_转职_社会人"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1017] - 　　社会人", "1017"
+		PRINTFORM 　
+		RESETCOLOR
+		SIF SCENE == "MNG_转职_局员"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1018] - 　　　局员", "1018"
+		PRINTFORML
+		RESETCOLOR
+		PRINTFORM 　　　｜
+		SIF SCENE == "MNG_转职_娼妓"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1019] - 　　　娼妓", "1019"
+		PRINTFORM 　
+		RESETCOLOR
+		PRINTFORML
+		
+		PRINTFORM 　配属｜
+		IF FLAG:学園 <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - 　？？？？
+		ELSE
+			SIF SCENE == "MNG_配属_学院学生"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1020] - 　学院学生", "1020"
+		ENDIF
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:支援住宅 <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - 　？？？？
+		ELSE
+			SIF SCENE == "MNG_配属_支援住宅"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1021] - 　支援住宅", "1021"
+		ENDIF
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:爱情宾馆テル <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - ？？？？？
+		ELSE
+			SIF SCENE == "MNG_配属_爱情宾馆店员"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1022] - 爱情宾馆店员", "1022"
+		ENDIF
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:高級カジノ <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - ？？？？？
+		ELSE
+			SIF SCENE == "MNG_配属_カジノ店员"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1023] - カジノ店员", "1023"
+		ENDIF
+		RESETCOLOR
+		PRINTFORML
+		
+		PRINTFORM 　入居｜
+		IF FLAG:5031 && SCENE == "MNG_入居_一号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_一号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5031
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1001] - 　　一号室", "1001"
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:5032 && SCENE == "MNG_入居_二号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_二号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5032
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1002] - 　　二号室", "1002"
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:5033 && SCENE == "MNG_入居_三号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_三号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5033
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1003] - 　　三号室", "1003"
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:5034 && SCENE == "MNG_入居_四号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_四号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5034
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1004] - 　　四号室", "1004"
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:5035 && SCENE == "MNG_入居_五号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_五号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5035
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1005] - 　　五号室", "1005"
+		PRINTFORM 　
+		RESETCOLOR
+		PRINTFORML
+
+		PRINTFORM 　　　｜
+		IF FLAG:5036 && SCENE == "MNG_入居_六号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_六号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5036
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1006] - 　　六号室", "1006"
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:5037 && SCENE == "MNG_入居_七号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_七号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5037
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1007] - 　　七号室", "1007"
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:5038 && SCENE == "MNG_入居_八号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_八号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5038
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1008] - 　　八号室", "1008"
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:5039 && SCENE == "MNG_入居_九号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_九号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5039
+			SETCOLOR COLOR("紫")
+		ENDIF
+		SIF SCENE == "MNG_入居_九号室"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1009] - 　　九号室", "1009"
+		PRINTFORM 　
+		RESETCOLOR
+		IF FLAG:5040 && SCENE == "MNG_入居_十号室"
+			SETCOLOR COLOR("ピンク")
+		ELSEIF SCENE == "MNG_入居_十号室"
+			SETCOLOR COLOR("黄色")
+		ELSEIF FLAG:5040
+			SETCOLOR COLOR("紫")
+		ENDIF
+		PRINTBUTTON "[1010] - 　　十号室", "1010"
+		PRINTFORM 　
+		RESETCOLOR
+		PRINTFORML
+		
+		PRINTFORM 　特殊｜
+		IF FLAG:エステ <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - 　？？？？
+		ELSE
+			SIF SCENE == "MNG_特殊_外見変更"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1024] - 　外見変更", "1024"
+		ENDIF
+		PRINTFORM 　
+		RESETCOLOR
+		
+		IF FLAG:病院 <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - 　？？？？
+		ELSE
+			SIF SCENE == "MNG_特殊_治療設備"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1025] - 　治療設備", "1025"
+		ENDIF
+		PRINTFORM 　
+		RESETCOLOR
+		
+		IF FLAG:品種改良施設 <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - 　？？？？
+		ELSE
+			SIF SCENE == "MNG_特殊_品種改良"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1026] - 　品種改良", "1026"
+		ENDIF
+		PRINTFORM 　
+		RESETCOLOR
+		
+		IF FLAG:研究施設 <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - 　？？？？
+		ELSE
+			SIF SCENE == "MNG_特殊_身体强化"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1027] - 　身体强化", "1027"
+		ENDIF
+		PRINTFORM 　
+		RESETCOLOR
+		
+		IF FLAG:研究施設 <= 0
+			SETCOLOR COLOR("灰色")
+			PRINTFORM [----] - ？？？？？
+		ELSE
+			SIF SCENE == "MNG_特殊_次世代创造"
+				SETCOLOR COLOR("黄色")
+			PRINTBUTTON "[1028] - 次世代创造", "1028"
+		ENDIF
+		PRINTFORM 　
+		RESETCOLOR
+		PRINTFORML
+		
+		PRINTFORM 　消去｜
+		SIF SCENE == "MNG_登录_登录抹消"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1000] - 　登录抹消", "1000"
+		PRINTFORM 　
+		RESETCOLOR
+		
+		SIF SCENE == "MNG_登录_範囲消去"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1031] - 　範囲消去", "1031"
+		PRINTFORM 　
+		RESETCOLOR
+		
+		SIF SCENE == "MNG_登录_抹消中止"
+			SETCOLOR COLOR("黄色")
+		PRINTBUTTON "[1032] - 　抹消中止", "1032"
+		PRINTFORM 　
+		RESETCOLOR
+		PRINTFORML
+	ELSE
+	ENDIF
+	
+	DRAWLINE
+	PRINTFORM 　
+	PRINTBUTTON "[9999] - 　　　　もどる　　　　", "9999"
+	PRINTFORML 
+	PRINTFORML 
+	DO
+		INPUTS
+		INPUT_STR '= RESULTS
+		SIF !STRLENS(INPUT_STR)
+			GOTO MNG_RETRY
+		IF ISNUMERIC(INPUT_STR)
+			INPUT_INT = TOINT(INPUT_STR)
+			SELECTCASE INPUT_INT
+			;登录抹消/範囲消去/抹消中止
+			CASE 1000, 1031, 1032
+				RETURN INPUT_INT
+			;マンション入居
+			CASE 1001 TO 1010
+				RETURN INPUT_INT
+				
+			;正式居民/特别保护/姓名変更/交友制御/衣装変更
+			CASE 1011, 1012, 1013, 1029, 1030
+				RETURN INPUT_INT
+			
+			;转职系
+			CASE 1014 TO 1019
+				;SIF MONEY <= 500000
+				;	GOTO MNG_RETRY
+				RETURN INPUT_INT
+			;施設利用系
+			CASE 1020
+				SIF FLAG:学園 <= 0
+					GOTO MNG_RETRY
+				RETURN INPUT_INT
+			CASE 1021
+				SIF FLAG:支援住宅 <= 0
+					GOTO MNG_RETRY
+				RETURN INPUT_INT
+			CASE 1022
+				SIF FLAG:爱情宾馆テル <= 0
+					GOTO MNG_RETRY
+				RETURN INPUT_INT
+			CASE 1023
+				SIF FLAG:高級カジノ <= 0
+					GOTO MNG_RETRY
+				RETURN INPUT_INT
+			CASE 1024
+				SIF FLAG:エステ <= 0
+					GOTO MNG_RETRY
+				RETURN INPUT_INT
+			CASE 1025
+				SIF FLAG:病院 <= 0
+					GOTO MNG_RETRY
+				RETURN INPUT_INT
+			CASE 1026
+				SIF FLAG:品種改良施設 <= 0
+					GOTO MNG_RETRY
+				RETURN INPUT_INT
+			CASE 1027, 1028
+				SIF FLAG:研究施設 <= 0
+					GOTO MNG_RETRY
+				RETURN INPUT_INT
+			CASE 8888
+				SIF !(CHARA_CNT > 0 && NOW_GROUP > 1)
+					GOTO MNG_RETRY
+				NOW_GROUP --
+				RETURN -1
+			CASE 2222
+				SIF !(CHARA_CNT > 0 && NOW_GROUP < LAST_GROUP)
+					GOTO MNG_RETRY
+				NOW_GROUP ++
+				RETURN -1
+			CASE 3333
+				PRINTFORML ページ最大显示人数を選択または入力してください（1～999人）
+				PRINTFORM [5] 5人 
+				PRINTFORM [10] 10人 
+				PRINTFORM [15] 15人 
+				PRINTFORML [20] 20人 
+				PRINTFORML [0] 変更しない
+				INPUT
+				L_INPUT = RESULT
+				IF INRANGE(L_INPUT, 1, 999)
+					FLAG:定数_咖啡厅显示数 = L_INPUT
+					PRINTFORMW 显示人数を{L_INPUT}人に変更しました
+					GET_LIST = 1
+					NOW_GROUP = 1
+				ENDIF
+				RETURN -1
+			CASE 4444
+				PACK_PAGE = (PACK_PAGE - 1 + PACK_SIZE) % PACK_SIZE
+				RETURN -1
+			CASE 6666
+				PACK_PAGE = (PACK_PAGE + 1 + PACK_SIZE) % PACK_SIZE
+				RETURN -1
+			CASE 9999
+				NOW_GROUP = 1
+				RETURN
+			CASEELSE
+			;角色が選択された時
+				SIF !INRANGE(INPUT_INT, INPUT_MIN, INPUT_MAX)
+					GOTO MNG_RETRY
+				;ここだけDO-LOOPぬけます
+				BREAK
+				$MNG_RETRY
+				CALL C_INPUT_ERROR("無効な入力です")
+				CONTINUE
+			ENDSELECT
+		ELSE
+			;STRで受け取った時、SORT处理なので处理が可能な場合は全てRESTART
+			;妙な文字列を受け取った場合にはCONTINUE
+			;DO-LOOPを脱出できるのはINTかつ、リスト上の角色を選択した場合のみ
+			CALL CHARA_SORT_CTRL(CHARA_LIST, CHARA_CNT, INPUT_STR, SORT_TYPE)
+			IF RESULT
+				RETURN -1
+			ELSE
+				GOTO MNG_RETRY
+			ENDIF
+		ENDIF
+	LOOP 1
+	
+	IF STRCOUNT(OP, "「情報显示」")
+		CALL INFO_STATUS_GROUP(CHARA_LIST, INPUT_INT, CHARA_CNT, OP)
+		SIF RESULT < 0
+			RETURN -1
+		SIF STRCOUNT(OP, "「最終確認」")
+			RETURN RESULT
+	ELSEIF SCENE == "MNG_登录_範囲消去"
+		FOR LOCAL, INPUT_INT, CHARA_CNT
+			SIF TALENT:(CHARA_LIST:LOCAL):NPC
+				CONTINUE
+			SIF CFLAG:(CHARA_LIST:LOCAL):正式居民
+				CONTINUE
+			SIF CFLAG:(CHARA_LIST:LOCAL):特别保护
+				CONTINUE
+			SIF CFLAG:(CHARA_LIST:LOCAL):マンションID
+				CONTINUE
+			CFLAG:(CHARA_LIST:LOCAL):登录抹消 = 1
+		NEXT
+		RETURN CHARA_LIST:INPUT_INT
+	ELSE
+		RETURN CHARA_LIST:INPUT_INT
+	ENDIF
+CASEELSE
+	GOTO DO_DEFAULT
+ENDSELECT
+
+
+@LIST_CHARA_MEMORY_SORT(CHARA_LIST, CHARA_CNT)
+#DIM REF CHARA_LIST
+#DIM     CHARA_CNT
+#DIM     LIST_ID
+#DIM     PREV_TARGET
+#DIM     UNIQUE_ID
+PREV_TARGET = FINDCHARA(CFLAG:調教対象フラグ, 1, 1)
+SIF PREV_TARGET >= 1
+	UNIQUE_ID = CFLAG:PREV_TARGET:個別番号
+CVARSET CFLAG, GETNUM(CFLAG, "ソート番号"), 1000
+CFLAG:MASTER:ソート番号 = -1
+FOR LIST_ID, 0, CHARA_CNT
+	CFLAG:(CHARA_LIST:LIST_ID):ソート番号 = LIST_ID
+NEXT
+SORTCHARA CFLAG:ソート番号
+CALLF CHANGE_TARGET_ARRAY()
+IF PREV_TARGET >= 1
+	CALL CHANGE_TARGET_SET(FINDCHARA(CFLAG:個別番号, UNIQUE_ID, 1))
+ELSE
+	CALL CHANGE_TARGET_CLEAR
+ENDIF
+CVARSET CFLAG, GETNUM(CFLAG, "ソート番号")
+PRINTFORMW 現在のリスト配置を登录番号に反映しました
+[SKIPSTART]
+
+
+
+
+
+
+
+
+
+
+
+
+[SKIPEND]

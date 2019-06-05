@@ -1,0 +1,672 @@
+;-------------------------------------------------
+;排序用ラベル定義関数
+;-------------------------------------------------
+;INT型の角色クタ變数を区別沒有に扱うためのテーブルを定義する
+;数字決め打ちでconst使いまくるのってのも正直褒められたもんじゃないが
+;ABLやCFLAGを区別せずにLABEL_NAMEだけでサクッと參照できるのはかなり簡略化出来て便利
+;
+;F関数でも使えるようにこの関数自体をF関数化してCALLFで使用するようにする
+;注意）
+;・CONST配列は要素0を空けておくこと
+;・@C_GET_CVAR_VALUEに記載がないLABEL_VAR_NAMEは使用出来ない
+;・角色變数CSVをイジったら見直しが必要
+;・「単一のCVARに属さない体能」の參照用に"EXTRA"を増設
+;　実際の算出は@C_GET_CVAR_VALUE内部で行っている
+;　この関数内でのEXTRA:XとEXTRA參照用CONSTを一致させておくこと
+@DIM_TABLE_CVAR(LABEL_NAME, LABEL_VAR_NAME, LABEL_VAR_ID, LABEL_MAX)
+#FUNCTION
+#LOCALSIZE 1
+#LOCALSSIZE 1
+#DIMS REF LABEL_NAME     ;戻り值用、配列を直接書き換える
+#DIMS REF LABEL_VAR_NAME ;各ラベル文字列
+#DIM  REF LABEL_VAR_ID   ;各ラベル文字列が對應する角色變数の名前、ABLやMARK
+#DIM  REF LABEL_MAX      ;各ラベル文字列が對應する角色變数の要素
+;STR系は左揃えでINTは右揃えになってるが気にするな
+{
+#DIMS CONST C_LABEL_NAME, 158 = "none",
+	"ID",				"协助状况",			"关系",			"说服值",			"好感度",
+	"忠诚值",			"隶属刻印",			"爱情值",			"陷落刻印",			"淫乱值",
+	"淫乱刻印",			"反发刻印",			"难度",				"人气",				"道德",
+	"罪孽",				"品格",				"肉体伤害",			"精神伤害",			"地位",
+	"善恶",				"贡献",				"现金",				"收入",				"开销",
+	"援交数",			"种族",				"身高",				"体重",				"胸围",
+	"罩杯",				"腰围",				"臀围",				"发色",				"发型",
+	"眼",				"眼色",				"体型",				"生殖评价",			"卵子LV",
+	"母体LV",			"女人味",			"荷尔蒙",			"本能",				"兴趣",
+	"关心",				"性交愿望",			"怀孕愿望",			"C感觉",			"V感觉",
+	"A感觉",			"B感觉",			"技巧",				"魅惑",				"欲望",
+	"暴露癖",			"施虐气质",			"被虐气质",			"百合气质",			"BL气质",
+	"性交成癮",			"自慰成癮",			"精液成癮",			"接吻成癮",			"亲密",
+	"顺从",				"侍奉精神",			"性奴隶",			"笼络",				"高潮经验",
+	"C经验",			"V经验",			"B经验",			"A经验",			"接吻经验",
+	"手交经验",			"口交经验",			"自慰经验",			"乳交经验",			"V性交经验",
+	"A性交经验",		"精液经验",			"饮精经验",			"內射经验",			"主人调教经验",
+	"NTR调教经验",	"侍奉快乐经验",		"诱惑经验",			"NTL调教经验",	"百合经验",
+	"BL经验",			"痛苦快乐经验",		"被虐快乐经验",		"嗜虐快乐经验",		"紧缚经验",
+	"触手经验",			"兽奸经验",			"强奸经验",			"家事经验",			"摄影经验",
+	"被摄经验",			"歌唱经验",			"战斗经验",			"卖春经验",			"分娩经验",
+	"胜利次数",			"经验值",			"现HP",				"满HP",				"现SP",
+	"满SP",				"现BRE",			"满BRE",			"SAN",				"GUTS",
+	"BRAVE",			"ATK",				"DEF",				"HIT",				"SPD",
+	"LUK",				"技能点",			"预判",				"机智",				"聆听",
+	"医疗",				"机械修理",			"电脑",				"开锁",				"隐匿",
+	"解体",				"解读",				"主要种类",			"主要练度",			"主要DICE数",
+	"主要DICE面",		"主要BONUS",		"次要种类",			"次要练度",			"次要DICE数",
+	"次要DICE面",		"次要BONUS",		"支援",				"后方",				"回收",
+	"部队",				"设施",				"亲交",				"探索",				"出身",
+	"职业",				"管理",				"机密",				"合意",				"好LV",
+	"攻略",				"粉丝",
+}
+
+
+
+{
+#DIMS CONST C_LABEL_VAR_NAME, 158 = "none",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "MARK",  "CFLAG", "MARK",  "CFLAG",
+	"MARK",  "MARK",  "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "ABL",   "ABL",
+	"ABL",   "ABL",   "ABL",   "ABL",   "ABL",
+	"ABL",   "ABL",   "ABL",   "ABL",   "ABL",
+	"ABL",   "ABL",   "ABL",   "ABL",   "ABL",
+	"ABL",   "ABL",   "ABL",   "ABL",   "EXP",
+	"EXP",   "EXP",   "EXP",   "EXP",   "EXP",
+	"EXP",   "EXP",   "EXP",   "EXP",   "EXP",
+	"EXP",   "EXP",   "EXP",   "EXP",   "EXP",
+	"EXP",   "EXP",   "EXP",   "EXP",   "EXP",
+	"EXP",   "EXP",   "EXP",   "EXP",   "EXP",
+	"EXP",   "EXP",   "EXP",   "EXP",   "EXP",
+	"EXP",   "EXP",   "EXP",   "EXP",   "EXP",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "CFLAG", "CFLAG", "CFLAG",
+	"CFLAG", "CFLAG", "EXTRA", "EXTRA", "EXTRA",
+	"EXTRA", "EXTRA", "EXTRA", "EXTRA", "EXTRA",
+	"EXTRA", "EXTRA", "EXTRA", "EXTRA", "EXTRA",
+	"EXTRA", "CFLAG"
+}
+
+{
+#DIM  CONST C_LABEL_VAR_ID, 158 = 0,
+	 530, 5016,  551,  510,  550,
+	 500,    0,  501,    1,  502,
+	   2,    9, 5000 ,6005, 6006,
+	6007, 6008, 6040, 6041, 6002,
+	6009, 6003, 6001, 6011, 6004,
+	6080, 6010,  300,  301,  302,
+	 303,  304,  305,  400,  401,
+	 403,  404,  406, 1500, 1200,
+	1201, 1001, 1002, 1010, 1011,
+	1012, 1020, 1021,    0,    1,
+	   2,    3,   10,   16,   17,
+	  18,   20,   21,   22,   23,
+	  30,   31,   32,   33,   50,
+	  51,   52,   53,   59,   10,
+	   1,    2,    4,   50,   35,
+	  36,   37,   38,   39,   30,
+	  51,   20,   21,   22,   80,
+	  81,   82,   83,   85,   55,
+	  56,   57,   60,   61,   62,
+	  63,   64,   65,   90,   91,
+	  92,   93,   94,   95,   99,
+	6901, 6900, 6501, 6500, 6503,
+	6502, 6517, 6516, 6505, 6507,
+	6508, 6511, 6512, 6513, 6514,
+	6515, 6902, 6600, 6601, 6602,
+	6603, 6604, 6605, 6606, 6607,
+	6608, 6609, 6550, 6558, 6551,
+	6552, 6553, 6560, 6568, 6561,
+	6562, 6563,    0,    1,    2,
+	   3,    4,    5,    6,    7,
+	   8,    9,   10,   11,   12,
+	  13,  555
+}
+
+#DIM C_LABEL_MAX
+SIF !C_LABEL_MAX
+	C_LABEL_MAX = VARSIZE("C_LABEL_NAME") -1
+
+VARSET LABEL_NAME
+VARSET LABEL_VAR_NAME
+VARSET LABEL_VAR_ID
+ARRAYCOPY "C_LABEL_NAME"    , "LABEL_NAME"
+ARRAYCOPY "C_LABEL_VAR_NAME", "LABEL_VAR_NAME"
+ARRAYCOPY "C_LABEL_VAR_ID"  , "LABEL_VAR_ID"
+LABEL_MAX = C_LABEL_MAX
+
+[SKIPSTART]
+ラベル一覧
+000:[none,				none,  none]
+
+001:[识别ID,			CFLAG, 530]
+002:[协助状况,			CFLAG, 5016]
+003:[关系,			CFLAG, 551]
+004:[说服值,			CFLAG, 510]
+005:[好感度,			CFLAG, 550]
+
+006:[忠诚度,			CFLAG, 500]
+007:[隶属刻印,			MARK,  0]
+008:[爱情值,			CFLAG, 501]
+009:[陷落刻印,			MARK,  1]
+010:[淫乱值,			CFLAG, 502]
+
+011:[淫乱刻印,			MARK,  2]
+012:[反发刻印,			MARK,  9]
+013:[人物难度,			CFLAG, 5000]
+014:[人气,				CFLAG, 6005]
+015:[道德,				CFLAG, 6006]
+
+016:[罪孽,				CFLAG, 6007]
+017:[品格,				CFLAG, 6008]
+018:[肉体伤害,			CFLAG, 6040]
+019:[精神伤害,			CFLAG, 6041]
+020:[地位,				CFLAG, 6002]
+
+021:[善恶,				CFLAG, 6009]
+022:[贡献值,			CFLAG, 6003]
+023:[现金,				CFLAG, 6001]
+024:[收入,				CFLAG, 6011]
+025:[开销,				CFLAG, 6004]
+
+026:[援交数,			CFLAG, 6080]
+027:[种族,				CFLAG, 6010]
+028:[身高,				CFLAG, 300]
+029:[体重,				CFLAG, 301]
+030:[胸围,				CFLAG, 302]
+
+031:[罩杯,				CFLAG, 303]
+032:[腰围,				CFLAG, 304]
+033:[臀围,				CFLAG, 305]
+034:[发色,				CFLAG, 400]
+035:[发型,				CFLAG, 401]
+
+036:[眼,				CFLAG, 403]
+037:[眼色,				CFLAG, 404]
+038:[体型,				CFLAG, 406]
+039:[生殖评价,			CFLAG, 1500]
+040:[卵子LV,			CFLAG, 1200]
+
+041:[母体LV,			CFLAG, 1201]
+042:[女人味,			CFLAG, 1001]
+043:[荷尔蒙,			CFLAG, 1002]
+044:[本能,				CFLAG, 1010]
+045:[兴趣,				CFLAG, 1011]
+
+046:[关心,				CFLAG, 1012]
+047:[性交愿望,			CFLAG, 1020]
+048:[怀孕愿望,			CFLAG, 1021]
+049:[C感觉,			ABL, 0]
+050:[V感觉,			ABL, 1]
+
+051:[A感觉,			ABL, 2]
+052:[B感觉,			ABL, 3]
+053:[技巧,				ABL, 10]
+054:[魅惑,				ABL, 16]
+055:[欲望,				ABL, 17]
+
+056:[暴露癖,			ABL, 18]
+057:[施虐气质,			ABL, 20]
+058:[被虐气质,			ABL, 21]
+059:[百合气质,			ABL, 22]
+060:[BL气质,			ABL, 23]
+
+061:[性交成癮,			ABL, 30]
+062:[自慰成癮,			ABL, 31]
+063:[精液成癮,			ABL, 32]
+064:[接吻成癮,			ABL, 33]
+065:[亲密,				ABL, 50]
+
+066:[顺从,				ABL, 51]
+067:[侍奉精神,			ABL, 52]
+068:[性奴隶,			ABL, 53]
+069:[笼络,				ABL, 59]
+070:[高潮经验,			EXP, 10]
+
+071:[C经验,			EXP, 1]
+072:[V经验,			EXP, 2]
+073:[B经验,			EXP, 4]
+074:[A経験,			EXP, 50]
+075:[接吻经验,			EXP, 35]
+
+076:[手交经验,			EXP, 36]
+077:[口交经验,			EXP, 37]
+078:[自慰经验,			EXP, 38]
+079:[乳交经验,			EXP, 39]
+080:[V性交经验,		EXP, 30]
+
+081:[A性交经验,		EXP, 51]
+082:[精液经验,			EXP, 20]
+083:[饮精经验,			EXP, 21]
+084:[內射经验,			EXP, 22]
+085:[主人调教经验,		EXP, 80]
+
+086:[NTR调教经验,	EXP, 81]
+087:[侍奉快乐经验,		EXP, 82]
+088:[诱惑经验,			EXP, 83]
+089:[NTL调教经验,	EXP, 85]
+090:[百合经验,			EXP, 55]
+
+091:[BL经验,			EXP, 56]
+092:[痛苦快乐经验,		EXP, 57]
+093:[被虐快乐经验,		EXP, 60]
+094:[嗜虐快乐经验,		EXP, 61]
+095:[紧缚经验,			EXP, 62]
+
+096:[触手经验,			EXP, 63]
+097:[兽奸经验,			EXP, 64]
+098:[强奸经验,			EXP, 65]
+099:[家事经验,			EXP, 90]
+100:[摄影经验,			EXP, 91]
+
+101:[被摄经验,			EXP, 92]
+102:[歌唱经验,			EXP, 93]
+103:[战斗经验,			EXP, 94]
+104:[卖春经验,			EXP, 95]
+105:[分娩经验,			EXP, 99]
+
+106:[胜利次数,			CFLAG, 6901]
+107:[经验值,			CFLAG, 6900]
+108:[现HP,				CFLAG, 6501]
+109:[满HP,				CFLAG, 6500]
+110:[现SP,				CFLAG, 6503]
+
+111:[满SP,				CFLAG, 6502]
+112:[现BRE,				CFLAG, 6517]
+113:[满BRE,				CFLAG, 6516]
+114:[SAN,				CFLAG, 6505]
+115:[GUTS,				CFLAG, 6507]
+
+116:[BRAVE,				CFLAG, 6508]
+117:[ATK,				CFLAG, 6511]
+118:[DEF,				CFLAG, 6512]
+119:[HIT,				CFLAG, 6513]
+120:[SPD,				CFLAG, 6514]
+
+121:[LUK,				CFLAG, 6515]
+122:[技能点,			CFLAG, 6902]
+123:[预判,				CFLAG, 6600]
+124:[机智,				CFLAG, 6601]
+125:[聆听,				CFLAG, 6602]
+
+126:[医疗,				CFLAG, 6603]
+127:[机械修理,			CFLAG, 6604]
+128:[电脑,				CFLAG, 6605]
+129:[开锁,				CFLAG, 6606]
+130:[隐匿,				CFLAG, 6607]
+
+131:[解体,				CFLAG, 6608]
+132:[解读,				CFLAG, 6609]
+133:[主要种类,			CFLAG, 6550]
+134:[主要练度,			CFLAG, 6558]
+135:[主要DICE数,		CFLAG, 6551]
+
+136:[主要DICE面,		CFLAG, 6552]
+137:[主要BONUS,			CFLAG, 6553]
+138:[次要种类,			CFLAG, 6560]
+139:[次要练度,			CFLAG, 6568]
+140:[次要DICE数,		CFLAG, 6561]
+
+141:[次要DICE面,		CFLAG, 6562]
+142:[次要BONUS,			CFLAG, 6563]
+143:[支援,				EXTRA, 0]
+144:[后方,				EXTRA, 1]
+145:[回收,				EXTRA, 2]
+
+146:[所属部队,			EXTRA, 3]
+147:[配属设施,			EXTRA, 4]
+148:[亲交,				EXTRA, 5]
+149:[探索,				EXTRA, 6]
+150:[出身,				EXTRA, 7]
+
+151:[职业,				EXTRA, 8]
+152:[管理指数,			EXTRA, 9]
+153:[机密,				EXTRA, 10]
+154:[合意,				EXTRA, 11]
+155:[好感度LV,			EXTRA, 12]
+
+156:[攻略,				EXTRA, 13]
+157:[粉丝,				CFLAG, 555]
+
+[SKIPEND]
+
+
+
+;-------------------------------------------------
+;ラベル清單定義関数
+;-------------------------------------------------
+;一連のラベル（角色變数）をひとまとめにして扱うために作成
+;注意事項
+;・LABEL_LISTの名前には2ケタの番号をふること≒现状では99种类まで
+;・LABEL_LISTを追加したらC_LIST_NAMEに名前を追加のこと（,による錯誤に注意）
+;・LIST_NAME/LABEL_NAMEともに呼び出し側とDIM側で差異が出ないようにすること
+;　これが呼び出しKEYになるので誤字ってたり表記ゆれがあるとうまくいかない
+@DIM_TABLE_LABEL_LIST(LIST_NAME, LABEL_LIST, LABEL_SIZE)
+#FUNCTION
+#DIMS LIST_NAME
+#DIMS REF LABEL_LIST ;戻り值用、ラベル配列
+#DIM  REF LABEL_SIZE ;
+#DIM      TEMP_ID    ;LISTNAME判別ID
+#DIMS     TEMP_LIST  ;LISTNAMEの一次取得用
+{
+#DIMS CONST C_LIST_NAME, 21 = "none",
+	"交流ST",
+	"陷落ST",
+	"性格ST",
+	"经济ST",
+	"身体ST",
+	"荷尔蒙ST",
+	"性感觉ST",
+	"性技能ABL",
+	"性癖ABL",
+	"性行动经验",
+	"性交经验",
+	"调教经验",
+	"特殊快乐经验",
+	"日常经验",
+	"战斗BASE",
+	"战斗ST",
+	"探索ABL",
+	"武裝",
+	"管理情报",
+	"社会情报",
+}
+
+
+
+;情报 01.交流ST
+{
+#DIMS CONST LABEL_LIST01, 6 =
+	"ID",   "协助状况", "关系", "说服值",  "好感度",
+	"难度"
+}
+;情报 02.陷落ST
+{
+#DIMS CONST LABEL_LIST02, 8 =
+	"亲交", "忠诚值", "隶属刻印", "爱情值", "陷落刻印",
+	"淫乱值", "淫乱刻印", "反发刻印"
+}
+;情报 03.性格ST
+{
+#DIMS CONST LABEL_LIST03, 7 =
+	"善恶", "人气", "道德", "罪孽", "品格",
+	"肉体伤害", "精神伤害"
+}
+
+;情报 04.经济ST
+{
+#DIMS CONST LABEL_LIST04, 6 =
+	"地位", "贡献", "现金", "收入", "开销",
+	"援交数"
+}
+
+;情报 05.身体ST
+{
+#DIMS CONST LABEL_LIST05, 12 =
+	"种族", "身高", "体重", "胸围", "罩杯",
+	"腰围", "臀围", "发色", "发型", "眼",
+	"眼色", "体型"
+}
+
+;情报 06.荷尔蒙ST
+{
+#DIMS CONST LABEL_LIST06, 10 =
+	"生殖评价", "卵子LV", "母体LV", "女人味",	"荷尔蒙",
+	"本能",		"兴趣",   "关心",   "性交愿望",	"怀孕愿望"
+}
+
+;情报 07.性感觉ABL
+{
+#DIMS CONST LABEL_LIST07, 9 =
+	"高潮经验", "C感觉", "C经验", "V感觉", "V经验",
+	"A感觉",   "A经验", "B感觉", "B经验"
+}
+
+;情报 08.性技能ABL
+{
+#DIMS CONST LABEL_LIST08, 8 =
+	"技巧", "魅惑", "欲望", "亲密", "顺从",
+	"侍奉精神", "性奴隶", "笼络"
+}
+
+;情报 09.性癖ABL
+{
+#DIMS CONST LABEL_LIST09, 9 =
+	"暴露癖",	"施虐气质",	"被虐气质",	"百合气质",	"BL气质",
+	"性交成癮",	"自慰成癮",	"精液成癮",	"接吻成癮"
+}
+
+;情报 10.性行动经验
+{
+#DIMS CONST LABEL_LIST10, 5 =
+	"接吻经验", "手交经验", "口交经验", "自慰经验", "乳交经验"
+}
+
+;情报 11.性交经验
+{
+#DIMS CONST LABEL_LIST11, 6 =
+	"主人调教经验", "V性交经验", "A性交经验", "精液经验", "饮精经验",
+	"內射经验"
+}
+
+;情报 12.调教经验
+{
+#DIMS CONST LABEL_LIST12, 6 =
+	"诱惑经验", "侍奉快乐经验", "百合经验", "BL经验", "NTR调教经验",
+	"NTL调教经验"
+}
+
+;情报 13.特殊快乐经验
+{
+#DIMS CONST LABEL_LIST13, 7 =
+	"痛苦快乐经验", "被虐快乐经验", "嗜虐快乐经验", "紧缚经验", "触手经验",
+	"兽奸经验", "强奸经验"
+}
+
+;情报 14.日常经验
+{
+#DIMS CONST LABEL_LIST14, 7 =
+	"家事经验", "摄影经验", "被摄经验", "歌唱经验", "战斗经验",
+	"卖春经验", "分娩经验"
+}
+
+;情报 15.战斗BASE
+{
+#DIMS CONST LABEL_LIST15, 8 =
+	"胜利次数", "经验值", "现HP", "满HP", "现SP",
+	"满SP", "现BRE", "满BRE"
+}
+
+;情报 16.战斗ST
+{
+#DIMS CONST LABEL_LIST16, 13 =
+	"SAN", "GUTS", "BRAVE", "ATK",  "DEF",
+	"HIT", "SPD",  "LUK",   "部队", "支援",
+	"后方" , "回收", "探索"
+}
+
+;情报 17.探索ABL
+{
+#DIMS CONST LABEL_LIST17, 11 =
+	"技能点",	"预判",	"机智",	"聆听",	"医疗",
+	"机械修理",	"电脑",	"开锁",	"隐匿",	"解体",
+	"解读"
+}
+
+;情报 18.主要武裝
+{
+#DIMS CONST LABEL_LIST18, 10 =
+	"主要种类", "主要练度", "主要DICE数", "主要DICE面", "主要BONUS",
+	"次要种类", "次要练度", "次要DICE数", "次要DICE面", "次要BONUS"
+}
+;情报 19.管理情报
+{
+#DIMS CONST LABEL_LIST19, 14 =
+	"ID",	"机密",	"管理",	"亲交",	"攻略",
+	"好LV",	"部队",	"设施",	"难度",	"贡献",
+	"人气",	"道德",	"罪孽",	"品格"
+}
+
+;情报 20.社会情报
+{
+#DIMS CONST LABEL_LIST20, 9 =
+	"ID",	"机密",	"出身",	"地位",	"职业",
+	"粉丝",	"现金",	"收入",	"开销"
+}
+
+
+TEMP_ID = FINDELEMENT(C_LIST_NAME, LIST_NAME, , , 1)
+SIF TEMP_ID <= 0
+	THROW 不正确LIST_NAME %LIST_NAME%
+
+VARSET LABEL_LIST
+TEMP_LIST '= @"LABEL_LIST%TOSTR(TEMP_ID, "D2")%"
+ARRAYCOPY TEMP_LIST, "LABEL_LIST"
+LABEL_SIZE = VARSIZE(TEMP_LIST)
+
+
+
+;-------------------------------------------------
+;清單パック定義関数
+;-------------------------------------------------
+;一連の清單をひとまとめにして扱うために作成
+;注意事項
+;・SCENE＝使用する場面ごとに顯示項目を切り替えることを想定する
+;・当関数のLABEL_TYPEは@DIM_TABLE_LABEL_LIST側のC_LIST_NAMEと對應する
+;　しかし、C_LIST_NAMEは0をnoneとするのに対して
+;　LABEL_TYPEは0も使用していてそのままコピペでは使えない
+;　（当関数ではページ循環處理の都合、C_LIST_NAME側は變数名取得處理の都合）
+;・基本的にはLABEL_LISTの内容に準拠しているが
+;　"基础情报"だけは例外、この顯示項目はLIST_CHARA_STATUS_GROUPで個別に處理している
+@DIM_TABLE_LIST_PACK(SCENE, LIST_PACK, PACK_SIZE)
+#FUNCTION
+#DIMS SCENE
+#DIMS REF LIST_PACK ;戻り值用、清單配列
+#DIM  REF PACK_SIZE ;
+#DIMS     TEMP_PACK ;LISTNAMEの一次取得用
+{
+#DIMS CONST C_PACK_ALL, 19 =
+	"基础情报",
+	"交流ST",
+	"陷落ST",
+	"性格ST",
+	"经济ST",
+	"身体ST",
+	"荷尔蒙ST",
+	"性感觉ST",
+	"性技能ABL",
+	"性癖ABL",
+	"性行动经验",
+	"性交经验",
+	"调教经验",
+	"特殊快乐经验",
+	"日常经验",
+	"战斗BASE",
+	"战斗ST",
+	"探索ABL",
+	"武裝",
+}
+{
+#DIMS CONST C_PACK_DEFAULT, 17 =
+	"基础情报",
+	"管理情报",
+	"社会情报",
+	"身体ST",
+	"荷尔蒙ST",
+	"性感觉ST",
+	"性技能ABL",
+	"性癖ABL",
+	"性行动经验",
+	"性交经验",
+	"调教经验",
+	"特殊快乐经验",
+	"日常经验",
+	"战斗BASE",
+	"战斗ST",
+	"探索ABL",
+	"武裝",
+}
+
+{
+#DIMS CONST C_PACK_RPG, 7 =
+	"基础情报",
+	"管理情报",
+	"身体ST",
+	"探索ABL",
+	"武裝",
+	"战斗BASE",
+	"战斗ST"
+}
+
+
+VARSET TEMP_PACK
+VARSET LIST_PACK
+SELECTCASE SCENE
+CASE "ALL"
+	TEMP_PACK '= "C_PACK_ALL"
+CASE "CAFE", "DEFAULT"
+	TEMP_PACK '= "C_PACK_DEFAULT"
+{
+CASE "EXPLORER", "RPG",
+	"RPG_武器强化",
+	"RPG_技能成长",
+	"RPG_注射强化剂",
+	"RPG_注射超人药",
+	"RPG_支援配置",
+	"RPG_后方配置",
+	"RPG_回收配置",
+	"RPG_探索配置"
+}
+	TEMP_PACK '= "C_PACK_RPG"
+CASEELSE
+	TEMP_PACK '= "C_PACK_DEFAULT"
+ENDSELECT
+ARRAYCOPY TEMP_PACK, "LIST_PACK"
+PACK_SIZE = VARSIZE(TEMP_PACK)
+
+
+
+;-------------------------------------------------
+;煩惱プラン定義関数
+;-------------------------------------------------
+@DIM_TABLE_NAYAMI_PLAN(PLAN_NAME, SUC_PLUS)
+#FUNCTION
+#DIMS REF PLAN_NAME ;戻り值用、プラン名
+#DIM  REF SUC_PLUS  ;各プランの成功修正值
+{
+#DIMS CONST C_PLAN_NAME, 11 = "none",
+	"提供资金",
+	"法力",
+	"治疗",
+	"建议",
+	"介绍店家",
+	"鼓励",
+	"教导",
+	"传播谣言",
+	"情报操作",
+	"尽力而为"
+}
+{
+#DIM  CONST C_SUC_PLUS, 11 = 0,
+	0,
+	0,
+	0,
+	-10,
+	-5,
+	0,
+	5,
+	10,
+	15,
+	60
+}
+ARRAYCOPY "C_PLAN_NAME", "PLAN_NAME"
+ARRAYCOPY "C_SUC_PLUS", "SUC_PLUS"

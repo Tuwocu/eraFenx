@@ -1,0 +1,176 @@
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+;
+;	Module		:SYSTEM_FUNC.ERB
+;	Facility	:系統用関數置き場。
+;
+;				 尚、記載する関數は全部先頭に"C_"を付ける。
+;				 (C=Common、共通)
+;
+;	Licence		:ライセンスフリー。
+;
+;	Modification Data:
+;
+;	Edit	Date			Author					Reason
+;	001		20XX/XX/XX		----					新規作成
+;
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+
+;===============================================================================
+;  ◇記載関數一覧(記載順)
+;
+;		Module Name						Explanation
+;
+; *- xxxx
+;
+;	・ C_ADD_CHARA						共通:角色追加
+;	・ C_CUSTOM_CHARA					共通:角色自訂
+;
+;===============================================================================
+
+;-------------------------------------------------------------------------------
+;   xxxx
+;-------------------------------------------------------------------------------
+
+;=================================================
+;   sub C_ADD_CHARA
+;=================================================
+;   共通:角色追加
+;-------------------------------------------------
+; Input:
+;  ARG:0				對象角色
+;  ARG:1				戰鬥等級
+;  ARG:2				重複許可
+; Output:
+;  RESULT				結果(0:登錄を實行 1:既に登錄完成 2:檔案が存在しない 3:角色數上限)
+;-------------------------------------------------
+@C_ADD_CHARA(ARG, ARG:1 = 0, ARG:2 = 0)
+#DIM L_T
+#DIM L_NUM
+#DIM L_MAX
+#DIM L_TMP
+L_MAX = 500
+
+;重複許可無の場合
+IF !ARG:2
+	;角色No190～200は重複可能
+	IF GROUPMATCH(ARG, 190, 200) || GROUPMATCH(ARG, 167)
+	;[同Noでの登錄者が存在]
+	ELSEIF CHARANUM && FINDCHARA(NO, ARG) > -1
+		RETURN 1
+	ENDIF
+ENDIF
+
+L_NUM = CHARANUM
+L_TMP = L_MAX - 5
+IF L_NUM == L_TMP
+	PRINTFORML ※目前已拥有{L_TMP}名居民
+	PRINTFORML 　超过{L_MAX}名成员时将无法邀请更多居民加入，请多加注意
+	WAIT
+ENDIF
+IF L_NUM == (L_MAX-1)
+	PRINTFORML 居民已经到达({L_MAX}名)
+	PRINTFORML 无法继续再邀请居民加入了
+	WAIT
+	RETURN 3
+ENDIF
+
+;--- 角色追加
+IF EXISTCSV(ARG, 0)
+	ADDCHARA ARG
+		IF ARG == 167
+		CALL Random_Chara_Set(ARG)
+		ELSE
+		ENDIF
+ELSE
+	RETURN 2
+ENDIF
+L_T = CHARANUM -1
+
+;-----------------------------
+;- 本體モジュール
+;-----------------------------
+
+;- 追加:角色
+CALL VAR_ADD_CHARA(L_T)
+
+
+;-----------------------------
+;- 其他
+;-----------------------------
+
+;預設では1を設定し、呼び出し側で調整
+CFLAG:L_T:事件加入 = 1
+
+;自訂可能檢查
+SIF CFLAG:L_T:自定义旗标
+	CALL C_CUSTOM_CHARA(L_T)
+
+RETURN 0
+
+
+;=================================================
+;   sub C_CUSTOM_CHARA
+;=================================================
+;   共通:角色自訂
+;-------------------------------------------------
+; Input:
+;  ARG:0				對象角色
+;-------------------------------------------------
+@C_CUSTOM_CHARA(ARG)
+#DIM L_INPUT
+
+;-----------------------------
+;- 名前變更
+;-----------------------------
+CUSTOMDRAWLINE =
+PRINTFORML 【角色自定义】
+PRINTFORML %CALLNAME:ARG%可以自定义一部分信息。
+PRINTL
+PRINTFORML [  0] 姓名(NAME)　　　：%NAME:ARG%
+PRINTFORML [  1] 昵称(CALLNAME)：%CALLNAME:ARG%
+PRINTL
+PRINTL
+PRINTL
+PRINTFORML [100] 完成
+
+$INPUT_LOOP
+INPUT
+L_INPUT = RESULT
+
+SELECTCASE L_INPUT
+	;完畢
+	CASE 100
+		RETURN
+	;名前變更
+	CASE 0
+		DRAWLINE
+		PRINTFORML 【姓名(NAME)更改】
+		PRINTFORML 现在的姓名是"%NAME:ARG%"。请输入新的姓名。
+		PRINTFORML 输入空白即为取消输入。
+		INPUTS
+		SELECTCASE RESULTS
+			CASE ""
+				RESTART
+			CASEELSE
+				NAME:ARG = %RESULTS%
+		ENDSELECT
+	;呼び名變更
+	CASE 1
+		DRAWLINE
+		PRINTFORML 【昵称(CALLNAME)變更】
+		PRINTFORML 现在的昵称是"%CALLNAME:ARG%"。请输入新的昵称。
+		PRINTFORML 输入空白即为取消输入。
+		INPUTS
+		SELECTCASE RESULTS
+			CASE ""
+				RESTART
+			CASEELSE
+				CALLNAME:ARG = %RESULTS%
+		ENDSELECT
+	;ERROR
+	CASEELSE
+		$ERROR
+		CALL C_INPUT_ERROR
+		GOTO INPUT_LOOP
+ENDSELECT
+RESTART

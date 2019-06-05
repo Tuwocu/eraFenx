@@ -1,0 +1,585 @@
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+;
+;	Module		:INFO.ERB
+;	Facility	:情報顯示。
+;
+;	Licence		:ライセンスフリー。
+;
+;	Modification Data:
+;
+;	Edit	Date			Author					Reason
+;	004		2018/11/14		morph					共通處理を関数化して別の部位でも使えるように
+;														INFO_TARGET_MARK
+;														INFO_TARGET_RELATION
+;														INFO_TARGET_GENDER
+;														INFO_TARGET_FALLEN
+;														INFO_TARGET_PREGNANCY
+;														INFO_TARGET_NAYAMI
+;	003		2017/03/02		morph					排序機能追加用に関数追加（INFO_LABEL_LIST/INFO_SORT_BUTTON/INFO_CHARA_DETAIL_LABEL/INFO_LABEL_ARRAY）
+;	002		2017/02/16		「」					AS用に顯示改変
+;	001		20XX/XX/XX		----					新規作成
+;
+;_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/#
+
+;===============================================================================
+;  ◇記載関数一覧(記載順)
+;
+;		Module Name						Explanation
+;
+; *- XXXX
+;
+;	・ INFO_DATE						情報:日期
+;	・ INFO_TIME						情報:時段
+;	・ INFO_TARGET_MAIN					情報:目標(主處理)
+;	・ INFO_TARGET_DETAIL				情報:目標(詳細)
+;	・ INFO_WORK_NAME					情報:劳动职务名
+;	・ INFO_危险日						情報:危险日
+;	・ INFO_LABEL_LIST					情報:ラベル一覧を使用した排序用按鈕作成関数
+;	・ INFO_SORT_BUTTON					情報:排序用按鈕作成関数
+;	・ INFO_CHARA_DETAIL_LABEL			情報:ラベル使用一行情報顯示関数
+;	・ INFO_LABEL_ARRAY					情報:ラベル一覧を使用した角色體能簡易顯示関数
+;
+;===============================================================================
+
+;-------------------------------------------------------------------------------
+;   XXXX
+;-------------------------------------------------------------------------------
+
+;=================================================
+;   sub INFO_DATE
+;=================================================
+;   情報:日期
+;-------------------------------------------------
+@INFO_DATE
+
+PRINTFORM {DAY}日
+PRINTFORM (%GET_DAY(DAY)%) -
+
+;- 情報:時段
+PRINTFORM %INFO_TIME(), 6, LEFT%
+PRINT
+
+
+;=================================================
+;   sub INFO_TIME
+;=================================================
+;   情報:時段
+;-------------------------------------------------
+@INFO_TIME
+#FUNCTIONS
+
+SELECTCASE FLAG:时段
+	CASE 0
+		RETURNF "上午"
+	CASH 1
+	    RETURNF "中午"
+	CASE 2
+	    RETURNF "下午"
+	CASEELSE [[时段:晚上]]
+		RETURNF "晚上"
+ENDSELECT
+
+
+;=================================================
+;   sub INFO_TARGET_MAIN
+;=================================================
+;   顯示:目標(主處理)
+;-------------------------------------------------
+@INFO_TARGET_MAIN
+#DIM L_I
+#DIM L_T
+
+FOR L_I, 0, DEFTR_PL_NUM
+
+	L_T = GTR_PL:L_I
+
+	;CHK:END
+	SIF L_T < 0
+		BREAK
+
+	IF L_T == MASTER
+		PRINT 【主人】
+	ELSE
+		PRINT 　　　　
+	ENDIF
+
+	;- 顯示:目標(詳細)
+	CALL INFO_TARGET_DETAIL(L_T)
+	PRINTL
+NEXT
+;PRINTL
+
+
+;=================================================
+;   sub INFO_TARGET_DETAIL
+;=================================================
+;   顯示:目標(詳細)
+;-------------------------------------------------
+; Input:
+;  ARG:0				對象角色
+;  ARG:1				短縮フラグ(0:オフ 1:オン)
+;-------------------------------------------------
+@INFO_TARGET_DETAIL(ARG:0, ARG:1=0, ARG:2 = 0)
+#DIM L_I
+#DIM L_TMP
+#DIM L_SEX
+#DIM L_COLOR
+#DIMS L_STR
+
+L_I=ARG
+L_COLOR = ARG:1
+SETCOLOR 0xc1c1c1
+RESETCOLOR
+;PRINTFORM \[No.%TOSTR(NO:L_I),3%\]
+IF ARG:2 > 0
+	PRINTFORM %CSTR:L_I:(ARG:2)%
+ENDIF
+CALL VAR_PRINT_LIST_NAME(L_I)
+
+;VAR:バー輸出(基礎)
+;行内で最初にカラー變更が起きると半角スペースが入る仕様？で後ろがズレないためのSETCOLOR
+SETCOLOR 0xc1c1c1
+CALL VAR_BAR_BASE(L_I, 0, 2)
+RESETCOLOR
+CALL INFO_TARGET_MARK(L_I)
+;-----------------------------
+;-- 勞動情報
+;-----------------------------
+;未実装みたいなので一時的にコメントアウト
+;PRINTFORM [%INFO_WORK_NAME(L_I)%]
+CALL INFO_TARGET_RELATION(L_I)
+CALL INFO_TARGET_GENDER(L_I)
+CALL INFO_TARGET_FALLEN(L_I)
+CALL INFO_TARGET_PREGNANCY(L_I, ARG:1)
+CALL INFO_TARGET_NAYAMI(L_I)
+
+;-----------------------------
+;-- 刻印情報
+;-----------------------------
+@INFO_TARGET_MARK(L_I)
+#DIM L_I
+#DIM L_TMP
+PRINTFORM [
+;- 刻印:隸屬
+L_TMP = MARK:L_I:隶属刻印
+SIF !L_TMP
+	SETCOLOR COLOR("隐藏")
+PRINTFORM 隶LV{L_TMP}
+RESETCOLOR
+;- 刻印:陷落
+L_TMP = MARK:L_I:陷落刻印
+SIF !L_TMP
+	SETCOLOR COLOR("隐藏")
+PRINTFORM 陷LV{L_TMP}
+RESETCOLOR
+;- 刻印:淫亂
+L_TMP = MARK:L_I:淫乱刻印
+SIF !L_TMP
+	SETCOLOR COLOR("隐藏")
+PRINTFORM 淫LV{L_TMP}
+RESETCOLOR
+;- 刻印:抗拒
+L_TMP = MARK:L_I:反发刻印
+SIF !L_TMP
+	SETCOLOR COLOR("隐藏")
+PRINTFORM 反LV{L_TMP}
+RESETCOLOR
+PRINTFORM ]
+
+
+
+;-----------------------------
+;-- 合意と陷落
+;-----------------------------
+@INFO_TARGET_RELATION(L_I)
+#DIM L_I
+IF L_I == MASTER
+	PRINTFORM ─
+ELSEIF TALENT:L_I:合意
+;	SETCOLOR COLOR("粉红")
+	SETCOLOR 250,250,100
+	PRINTFORM 合
+	RESETCOLOR
+ELSEIF TALENT:L_I:調教完成
+;	SETCOLOR COLOR("粉红")
+	SETCOLOR 250,0,0
+	PRINTFORM 完
+	RESETCOLOR
+ELSEIF TALENT:L_I:被侵犯
+	SETCOLOR COLOR("紫")
+	PRINTFORM 犯
+	RESETCOLOR
+ELSEIF TALENT:L_I:把柄
+	SETCOLOR COLOR("紫")
+	PRINTFORM 弱
+	RESETCOLOR
+ELSEIF CFLAG:L_I:关系 == 2
+	PRINTFORM 亲
+ELSEIF CFLAG:L_I:关系 == 1
+	SETCOLOR 0x999999
+	PRINTFORM 友
+	RESETCOLOR
+ELSE
+	SETCOLOR 0x444444
+	PRINTFORM 知
+	RESETCOLOR
+ENDIF
+;各種陷落
+IF TALENT:L_I:崇拜
+	SETCOLOR COLOR("紫")
+	PRINTFORM 崇
+	RESETCOLOR
+ELSEIF TALENT:L_I:爱人
+	SETCOLOR COLOR("紫")
+	PRINTFORM 爱
+	RESETCOLOR
+ELSEIF TALENT:L_I:情妇
+	SETCOLOR COLOR("紫")
+	PRINTFORM 情
+	RESETCOLOR
+ELSE
+	PRINTFORM ─
+ENDIF
+
+
+
+;-----------------------------
+;-- 性差系の素質顯示
+;-----------------------------
+@INFO_TARGET_GENDER(L_I)
+#DIM  L_I
+#DIMS L_STR
+;雙性
+IF TALENT:L_I:双性
+	PRINT 双
+ELSE
+	PRINTFORM %DB_TALENT_NAME(L_I, "男性")%
+ENDIF
+;女の場合
+IF VAR_SEX(L_I)
+	IF !TALENT:L_I:非处女
+		PRINT ,
+		SETCOLOR 0xFF66CC
+		PRINT 处
+		RESETCOLOR
+	ELSE
+		PRINTFORM ,─
+	ENDIF
+	;雙性で童貞の場合
+	IF !TALENT:L_I:非童贞 && TALENT:L_I:双性
+		PRINT ,
+		SETCOLOR 0xFF66CC
+		PRINT 童
+		RESETCOLOR
+	ELSE
+		PRINTFORM ,─
+	ENDIF
+;男の場合
+ELSE
+	PRINTFORM ,─
+	IF !TALENT:L_I:非童贞
+		PRINT ,
+		SETCOLOR COLOR("群青")
+		PRINT 童
+		RESETCOLOR
+	ELSE
+		PRINTFORM ,─
+	ENDIF
+ENDIF
+
+;女の場合
+IF VAR_SEX(L_I)
+	PRINT ,
+	L_STR = %DB_TALENT_NAME(L_I, "胸围")%
+	PRINTFORM %SUBSTRING(L_STR, 0,2), 2%
+ELSE
+	PRINTFORM ,─
+ENDIF
+
+
+;-----------------------------
+;-- 陷落進行度
+;-----------------------------
+@INFO_TARGET_FALLEN(L_I)
+#DIM  L_I
+#DIMS L_STR
+;隸屬度
+IF TALENT:L_I:隶属度
+	PRINT ,
+	L_STR = %DB_TALENT_NAME(L_I, "隶属度")%
+;	SETCOLOR COLOR("粉红")
+	PRINTFORM %SUBSTRING(L_STR, 0,2), 2%
+	RESETCOLOR
+;陷落度
+ELSEIF TALENT:L_I:陷落度
+	PRINT ,
+	L_STR = %DB_TALENT_NAME(L_I, "陷落度")%
+;	SETCOLOR COLOR("粉红")
+	PRINTFORM %SUBSTRING(L_STR, 0,2), 2%
+	RESETCOLOR
+ELSE
+	PRINTFORM ,　
+ENDIF
+;ＮＴＲ度
+IF TALENT:L_I:NTR度
+	PRINT ,
+	L_STR = %DB_TALENT_NAME(L_I, "NTR度")%
+	SETCOLOR COLOR("紫")
+	PRINTFORM %SUBSTRING(L_STR, 0,2), 2%
+	RESETCOLOR
+ELSE
+	PRINTFORM ,　
+ENDIF
+
+
+
+;-----------------------------
+;-- 懷孕情報
+;-----------------------------
+@INFO_TARGET_PREGNANCY(L_I, SHORT)
+#DIM L_I
+#DIM SHORT
+;短縮顯示
+IF SHORT
+	;懷孕
+	IF TALENT:L_I:怀孕
+		PRINT ,
+		SETCOLOR COLOR("黄色")
+		PRINTFORM 孕
+		RESETCOLOR
+	ELSEIF TALENT:L_I:受精
+		PRINT ,
+		SETCOLOR COLOR("黄色")
+		PRINTFORM 受
+		RESETCOLOR
+	;排卵藥
+	ELSEIF TALENT:L_I:排卵药
+		PRINT ,
+		SETCOLOR COLOR("紫")
+		CALL CP_HEARTB()
+		PRINTFORM 排
+		CALL CP_HEARTB()
+		RESETCOLOR
+
+	;危险日 且つ 女
+	ELSEIF C_危险日(L_I) && VAR_SEX(L_I)
+		PRINT ,
+		SETCOLOR COLOR("紫")
+		CALL CP_HEARTB()
+		PRINTFORM 危
+		CALL CP_HEARTB()
+		RESETCOLOR
+	ELSE
+		PRINTFORM ,─
+	ENDIF
+ELSE
+	PRINT ,
+	;懷孕
+	IF TALENT:L_I:怀孕
+		SETCOLOR COLOR("黄色")
+		CALL CP_HEARTB()
+		PRINTFORM 怀孕中
+		CALL CP_HEARTB()
+		RESETCOLOR
+	ELSEIF TALENT:L_I:受精
+		SETCOLOR COLOR("黄色")
+		CALL CP_HEARTB()
+		PRINTFORM 受精完成
+		CALL CP_HEARTB()
+		RESETCOLOR
+	;排卵藥
+	ELSEIF TALENT:L_I:排卵药
+		SETCOLOR COLOR("紫")
+		CALL CP_HEARTB()
+		PRINTFORM 排卵药
+		CALL CP_HEARTB()
+		RESETCOLOR
+	;危险日
+	ELSEIF C_危险日(L_I) && VAR_SEX(L_I)
+		;- 情報:危险日
+		CALL INFO_危险日(L_I)
+	ELSE
+		PRINTFORM 　　　　　
+	ENDIF
+ENDIF
+
+
+
+;-----------------------------
+;-- 解决烦恼情報
+;-----------------------------
+@INFO_TARGET_NAYAMI(L_I)
+#DIM L_I
+#DIM NAYAMI
+IF CFlag:L_I:居民_解决烦恼判定次数 != 0 || CFlag:L_I:居民_解决烦恼中 != 0
+	PRINTFORM ,距离解决还需{(CFlag:L_I:居民_解决烦恼判定次数)+1}天
+ELSE
+	NAYAMI = SEARCH_ALL_NAYAMI(L_I)
+	IF INRANGE(NAYAMI, 201, 205)
+		PRINT ,想商量！
+	ELSEIF INRANGE(NAYAMI, 211, 215)
+		PRINT ,商量中
+	ELSEIF NAYAMI
+		PRINT ,烦恼中…
+	ENDIF
+ENDIF
+
+
+
+;-----------------------------
+;-- 武裝情報
+;-----------------------------
+@INFO_TARGET_WEAPON(L_I, WEAPON_TYPE = "MAIN")
+#DIM  L_I
+#DIMS WEAPON_TYPE
+SELECTCASE WEAPON_TYPE
+CASE "MAIN"
+	PRINTFORM [
+	PRINTFORM 主{INFO_STATUS_GET_BY_LABEL(L_I, "主要练度"),2}
+	PRINTFORM %CHARATU(INFO_STR_HEISOU(CFlag:L_I:居民_M武裝), 0)%
+	PRINTFORM %INFO_STR_MAIN_WEAPON_DAMAGE(L_I)%
+	PRINTFORM ]
+CASE "SUB"
+	PRINTFORM [
+	PRINTFORM 副{INFO_STATUS_GET_BY_LABEL(L_I, "次要练度"),2}
+	PRINTFORM %CHARATU(INFO_STR_HEISOU(CFlag:L_I:居民_S武裝), 0)%
+	PRINTFORM %INFO_STR_SUB_WEAPON_DAMAGE(L_I)%
+	PRINTFORM ]
+ENDSELECT
+
+
+
+
+;=================================================
+;   sub INFO_WORK_NAME
+;=================================================
+;   情報:劳动职务名
+;-------------------------------------------------
+; Input:
+;  ARG:0				對象角色
+; Output:
+;  RETURNF				劳动职务名
+;-------------------------------------------------
+@INFO_WORK_NAME(ARG)
+#FUNCTIONS
+#DIMS L_STR
+
+SELECTCASE CFLAG:ARG:劳动职务类型
+	CASE [[劳动职务:通常职]]
+		L_STR = 通常职
+	CASE [[劳动职务:歌姬职]]
+		L_STR = 歌姬职
+	CASE [[劳动职务:戰鬥职]]
+		L_STR = 戰鬥职
+	CASE [[劳动职务:妓院职]]
+		L_STR = 妓院职
+	CASEELSE
+		L_STR = ―――
+ENDSELECT
+
+RETURNF L_STR
+
+;=================================================
+;   sub INFO_危险日
+;=================================================
+;   情報:危险日
+;-------------------------------------------------
+; Input:
+;  ARG:0				對象角色
+;  ARG:1				句点有無
+;-------------------------------------------------
+@INFO_危险日(ARG, ARG:1=0)
+
+;危险日 且つ 女
+IF C_危险日(ARG) && VAR_SEX(ARG)
+	SIF ARG:1
+		PRINT ,
+	SETCOLOR COLOR("紫")
+	CALL CP_HEARTB()
+	PRINTFORM 危险日
+	CALL CP_HEARTB()
+	RESETCOLOR
+ENDIF
+
+
+;-------------------------------------------------
+;ラベル一覧を使用した排序用按鈕生成関数
+;-------------------------------------------------
+;渡されたラベル一覧配列を按鈕として顯示する
+@INFO_LABEL_LIST(SORT_TYPE, LABEL_LIST, LABEL_SIZE)
+#LOCALSIZE 1
+#LOCALSSIZE 1
+#DIMS     SORT_TYPE  ;现在のSORT内容
+#DIMS REF LABEL_LIST ;この行で使用するラベル一覧配列
+#DIM      LABEL_SIZE ;ラベル一覧配列の要素数
+FOR LOCAL, 0, LABEL_SIZE
+	PRINT |
+	CALL INFO_SORT_BUTTON(SORT_TYPE, LABEL_LIST:LOCAL)
+NEXT
+
+
+
+;-------------------------------------------------
+;排序用按鈕作成関数
+;-------------------------------------------------
+@INFO_SORT_BUTTON(SORT_TYPE, B_NAME)
+#DIMS SORT_TYPE ;现在の排序順
+#DIMS B_NAME    ;基本の按鈕名
+IF SORT_TYPE == @"%B_NAME%降序"
+	PRINTBUTTON @"▼%B_NAME%", @"%B_NAME%升序"
+ELSEIF SORT_TYPE == @"%B_NAME%升序"
+	PRINTBUTTON @"▲%B_NAME%", @"%B_NAME%降序"
+ELSE
+	PRINTBUTTON @"　%B_NAME%", @"%B_NAME%降序"
+ENDIF
+
+
+
+;-------------------------------------------------
+;ラベル使用一行情報顯示関数
+;-------------------------------------------------
+;角色の情報を一行で顯示しつつ按鈕として扱う
+;角色ラベル（按鈕としての番号）と登錄編號を別々に指定する必要がある
+@INFO_CHARA_DETAIL_LABEL(C_LABEL, C_ID, SORT_TYPE, LABEL_LIST, LABEL_SIZE)
+#LOCALSIZE 1
+#LOCALSSIZE 1
+#DIM      C_LABEL    ;按鈕として顯示させる数值
+#DIM      C_ID       ;角色の登錄編號
+#DIMS     SORT_TYPE  ;现在の排序順
+#DIMS REF LABEL_LIST ;この行で使用するラベル一覧配列
+#DIM      LABEL_SIZE ;ラベル一覧配列の要素数
+;C_LABELが負数はありえないので顯示内容のアナウンスに流用してます
+IF C_LABEL < 0
+	PRINTFORM %" " * 25%
+	CALL INFO_LABEL_LIST(SORT_TYPE, LABEL_LIST, LABEL_SIZE)
+	PRINTFORML
+ELSE
+	PRINTFORM [{C_LABEL, 3}]
+	CALL VAR_PRINT_LIST_NAME(C_ID)
+	CALL INFO_LABEL_ARRAY(C_ID, LABEL_LIST, LABEL_SIZE)
+	PRINTFORML
+ENDIF
+
+
+
+;-------------------------------------------------
+;ラベル一覧を使用した角色體能簡易顯示関数
+;-------------------------------------------------
+;渡されたLABEL_LISTに入っているLABEL_NAMEを順に顯示していく
+@INFO_LABEL_ARRAY(C_ID, LABEL_LIST, LABEL_SIZE)
+#DIM      C_ID       ;參照する登錄編號
+#DIMS REF LABEL_LIST ;この行で使用するラベル一覧配列
+#DIM      LABEL_SIZE ;ラベル一覧配列の要素数
+DEBUGPRINTFORML INFO_LABEL_ARRAY LABEL_SIZE{LABEL_SIZE}
+FOR LOCAL, 0, LABEL_SIZE
+	PRINT |
+	CALL CP_STATUS_BY_LABEL(C_ID, LABEL_LIST:LOCAL)
+NEXT
+
+
+
+;-------------------------------------------------
+;都市の予算情報
+;-------------------------------------------------
+@INFO_CITY_BASE
+PRINTFORML 【TP:{Flag:都市_现在TP}/{Flag:都市_最大TP}】【BP:{FLAG:都市_现在BP}】【AP:{FLAG:都市_现在AP}】【现金:{MONEY}】
